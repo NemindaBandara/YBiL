@@ -4,8 +4,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class YBiLApplication
+class YbilApplication
 
 fun main(args: Array<String>) {
-	runApplication<YBiLApplication>(*args)
+	runApplication<YbilApplication>(*args)
 }

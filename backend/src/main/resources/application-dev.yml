@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ybil_db
+    username: ybil_user
+    password: devpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+jwt:
+  # Base64-encoded or raw 256-bit+ secret key for dev
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  access-expiry-minutes: 15
+  refresh-expiry-days: 30
