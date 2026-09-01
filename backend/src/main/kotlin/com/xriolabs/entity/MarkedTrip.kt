@@ -1,6 +1,6 @@
 package com.xriolabs.YBiL.entity
 
-import com.xriolabs.YBiL.entity.enums.Role
+import com.xriolabs.YBiL.entity.enums.TripStatus
 import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import java.time.Instant
@@ -8,25 +8,27 @@ import java.util.UUID
 
 @Entity
 @Table(
-    name = "users",
+    name = "marked_trips",
     indexes = [
-        Index(name = "idx_users_username", columnList = "username", unique = true)
+        Index(name = "idx_marked_trips_user_status", columnList = "user_id, status")
     ]
 )
-class User(
+class MarkedTrip(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     val id: UUID? = null,
 
-    @Column(nullable = false, unique = true, length = 50)
-    var username: String,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    val user: User,
 
-    @Column(name = "password_hash", nullable = false)
-    var passwordHash: String,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "timetable_entry_id", nullable = false)
+    val timetableEntry: TimetableEntry,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    var role: Role = Role.PASSENGER,
+    var status: TripStatus = TripStatus.ACTIVE,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
