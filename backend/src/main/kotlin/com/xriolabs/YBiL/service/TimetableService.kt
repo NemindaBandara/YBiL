@@ -73,4 +73,27 @@ class TimetableService(
         scheduledLeavingTime = this.scheduledLeavingTime,
         updatedAt = this.updatedAt.toEpochMilli()
     )
+
+    // Delta Sync
+    @Transactional(readOnly = true)
+    fun getDeltaSync(sinceEpochMilli: Long?): DeltaSyncResponse {
+        val serverSyncCheckpoint = Instant.now()
+
+        val entries = if (sinceEpochMilli == null || sinceEpochMilli <= 0) {
+            // First install: fetch the full timetable snapshot
+            timetableEntryRepository.findAll()
+        } else {
+            // Incremental sync: only rows modified after client's last sync checkpoint
+            val sinceInstant = Instant.ofEpochMilli(sinceEpochMilli)
+            timetableEntryRepository.findByUpdatedAtAfter(sinceInstant)
+        }
+
+        val mappedEntries = entries.map { it.toResponse() }
+
+        return DeltaSyncResponse(
+            syncedAt = serverSyncCheckpoint.toEpochMilli(),
+            totalCount = mappedEntries.size,
+            entries = mappedEntries
+        )
+    }
 }

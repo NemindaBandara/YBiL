@@ -32,6 +32,7 @@ class SecurityConfig(
                     // Public endpoints
                     .requestMatchers("/api/health").permitAll()
                     .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/public/**").permitAll()
                     // Admin management
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     // Authenticated passenger & conductor features
