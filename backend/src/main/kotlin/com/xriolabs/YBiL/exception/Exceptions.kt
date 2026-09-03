@@ -76,4 +76,14 @@ class GlobalExceptionHandler {
         )
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response)
     }
+
+    @ExceptionHandler(IllegalStateException::class)
+    fun handleIllegalState(ex: IllegalStateException): ResponseEntity<ErrorResponse> {
+        val response = ErrorResponse(
+            status = HttpStatus.CONFLICT.value(),
+            error = "Conflict / Invalid State",
+            message = ex.message ?: "Operation violates current business state"
+        )
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
 }
