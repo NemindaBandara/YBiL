@@ -22,6 +22,12 @@ class JwtAuthFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
+        // Preflight OPTIONS requests must bypass JWT authentication entirely
+        if ("OPTIONS".equals(request.method, ignoreCase = true)) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
         val authHeader = request.getHeader("Authorization")
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
