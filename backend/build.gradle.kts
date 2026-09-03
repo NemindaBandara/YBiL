@@ -42,6 +42,12 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+
+	// Correct group ID: org.springframework.boot
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+	// OpenAPI / Swagger Documentation
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0")
 }
 
 tasks.withType<Test> {

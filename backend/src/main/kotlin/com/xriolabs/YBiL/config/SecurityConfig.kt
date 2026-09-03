@@ -31,6 +31,12 @@ class SecurityConfig(
                 auth
                     // Public endpoints
                     .requestMatchers("/api/health").permitAll()
+                    // Swagger / OpenAPI documentation
+                    .requestMatchers(
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                    ).permitAll()
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/public/**").permitAll()
                     // Admin management
