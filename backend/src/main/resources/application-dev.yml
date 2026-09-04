@@ -17,5 +17,5 @@ spring:
 jwt:
   # Base64-encoded or raw 256-bit+ secret key for dev
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  access-expiry-minutes: 15
+  access-expiry-minutes: 120
   refresh-expiry-days: 30
