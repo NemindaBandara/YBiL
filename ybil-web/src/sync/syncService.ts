@@ -41,6 +41,7 @@ export const syncService = {
             origin: item.route?.origin ?? '',
             destination: item.route?.destination ?? '',
             operatorType: item.operatorType,
+            busCategory: item.busCategory ?? 'NORMAL',
             busNumber: item.busNumber,
             scheduledParkingTime: item.scheduledParkingTime,
             scheduledLeavingTime: item.scheduledLeavingTime,

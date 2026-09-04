@@ -1,7 +1,7 @@
 import React from 'react';
-import type { TimetableEntry } from '../types/transit';
+import type { TimetableEntry, BusCategory } from '../types/transit';
 import { getDepartureStatus } from '../utils/timeUtils';
-import { Bus, Clock, Bookmark } from 'lucide-react';
+import { Bus, Clock, Bookmark, Sparkles, Zap, Shield } from 'lucide-react';
 
 interface BusCardProps {
   bus: TimetableEntry;
@@ -10,8 +10,38 @@ interface BusCardProps {
   isMarked?: boolean;
 }
 
+const CATEGORY_CONFIG: Record<
+  BusCategory,
+  { label: string; className: string; icon?: React.ReactNode }
+> = {
+  NORMAL: {
+    label: 'Normal',
+    className:
+      'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700/60',
+  },
+  SEMI: {
+    label: 'Semi-Exp',
+    className:
+      'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800/60',
+    icon: <Zap className="h-2.5 w-2.5" />,
+  },
+  LUXURY_AC: {
+    label: 'A/C Luxury',
+    className:
+      'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/70 dark:text-cyan-300 dark:border-cyan-800/60',
+    icon: <Sparkles className="h-2.5 w-2.5" />,
+  },
+  EXPRESSWAY: {
+    label: 'Expressway',
+    className:
+      'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800/60',
+    icon: <Shield className="h-2.5 w-2.5" />,
+  },
+};
+
 export const BusCard: React.FC<BusCardProps> = ({ bus, now, onMarkTrip, isMarked = false }) => {
   const status = getDepartureStatus(bus.scheduledLeavingTime, now);
+  const categoryConfig = CATEGORY_CONFIG[bus.busCategory ?? 'NORMAL'] || CATEGORY_CONFIG.NORMAL;
 
   const handleMark = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,7 +70,7 @@ export const BusCard: React.FC<BusCardProps> = ({ bus, now, onMarkTrip, isMarked
 
       <div className="flex items-start justify-between gap-3 pl-1">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-100">
               Route {bus.routeNumber}
             </span>
@@ -53,6 +83,15 @@ export const BusCard: React.FC<BusCardProps> = ({ bus, now, onMarkTrip, isMarked
             >
               {bus.operatorType}
             </span>
+
+            {/* Bus Service Category Badge */}
+            <span
+              className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${categoryConfig.className}`}
+            >
+              {categoryConfig.icon}
+              <span>{categoryConfig.label}</span>
+            </span>
+
             {bus.busNumber && (
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
                 {bus.busNumber}

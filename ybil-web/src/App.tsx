@@ -4,7 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import { useLiveClock } from "./hooks/useLiveClock";
 import { apiClient } from "./api/client";
 import { timetableRepository } from "./db/timetableRepository";
-import type { TimetableEntry, MarkedTrip } from "./types/transit";
+import type { TimetableEntry, MarkedTrip, BusCategory } from "./types/transit";
 import { getDepartureStatus } from "./utils/timeUtils";
 import { Header } from "./components/Header";
 import { BusCard } from "./components/BusCard";
@@ -13,7 +13,7 @@ import { AuthModal } from "./components/AuthModal";
 import { Search, Filter, Eye, EyeOff } from "lucide-react";
 
 export default function App() {
-  const now = useLiveClock(15000); // 15s interval tick
+  const now = useLiveClock(15000);
   const { isSyncing, isOnline, lastSyncTime, triggerSync } = useSync();
   const { isAuthenticated, user } = useAuth();
 
@@ -23,6 +23,9 @@ export default function App() {
   const [selectedOperator, setSelectedOperator] = useState<
     "ALL" | "SLTB" | "PRIVATE"
   >("ALL");
+  const [selectedCategory, setSelectedCategory] = useState<"ALL" | BusCategory>(
+    "ALL",
+  );
   const [showDeparted, setShowDeparted] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -46,7 +49,6 @@ export default function App() {
           setActiveTrip(null);
           return;
         }
-        // Pick the most recently marked trip (or the first ACTIVE one)
         const sorted = [...response].sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -67,7 +69,6 @@ export default function App() {
     loadCachedTimetable();
   }, [lastSyncTime]);
 
-  // Re-fetch active trip whenever the user logs in, out, or loads the page
   useEffect(() => {
     loadActiveTrip();
   }, [loadActiveTrip]);
@@ -99,7 +100,6 @@ export default function App() {
     }
   };
 
-  // With backend auto-supersede, marking a new bus will automatically cancel the old one
   const handleSwitchTrip = async (newEntryId: string) => {
     await handleMarkTrip(newEntryId);
   };
@@ -113,7 +113,6 @@ export default function App() {
     return buses.filter((bus) => {
       const status = getDepartureStatus(bus.scheduledLeavingTime, now);
 
-      // Auto-prune departed buses unless "Show departed" toggle is enabled
       if (!showDeparted && status.shouldHide) {
         return false;
       }
@@ -126,9 +125,20 @@ export default function App() {
       const matchesOperator =
         selectedOperator === "ALL" || bus.operatorType === selectedOperator;
 
-      return matchesSearch && matchesOperator;
+      const matchesCategory =
+        selectedCategory === "ALL" ||
+        (bus.busCategory ?? "NORMAL") === selectedCategory;
+
+      return matchesSearch && matchesOperator && matchesCategory;
     });
-  }, [buses, searchQuery, selectedOperator, showDeparted, now]);
+  }, [
+    buses,
+    searchQuery,
+    selectedOperator,
+    selectedCategory,
+    showDeparted,
+    now,
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors">
@@ -162,9 +172,10 @@ export default function App() {
             />
           </div>
 
+          {/* Operator Filter Row + Departed Toggle */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs">
-              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1" />
+              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-0.5" />
               {(["ALL", "SLTB", "PRIVATE"] as const).map((type) => (
                 <button
                   key={type}
@@ -197,6 +208,31 @@ export default function App() {
               <span>Departed</span>
             </button>
           </div>
+
+          {/* Bus Service Category Filter Row */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+            {(
+              [
+                { key: "ALL", label: "All Types" },
+                { key: "NORMAL", label: "Normal" },
+                { key: "SEMI", label: "Semi" },
+                { key: "LUXURY_AC", label: "A/C" },
+                { key: "EXPRESSWAY", label: "Expressway" },
+              ] as const
+            ).map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setSelectedCategory(cat.key)}
+                className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                  selectedCategory === cat.key
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    : "bg-white text-slate-600 border border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-800"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Timetable List */}
@@ -207,7 +243,7 @@ export default function App() {
             </p>
             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
               {showDeparted
-                ? "Try adjusting your search criteria."
+                ? "Try adjusting your search criteria or type filters."
                 : 'Past buses are hidden. Turn on "Departed" to view them.'}
             </p>
           </div>

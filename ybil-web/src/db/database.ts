@@ -14,6 +14,11 @@ export class YbilDatabase extends Dexie {
       timetable: 'id, routeId, scheduledLeavingTime, updatedAt',
       syncMeta: 'key'
     });
+
+    // Version 2: Index busCategory for fast client-side filtering
+    this.version(2).stores({
+      timetable: 'id, routeId, busCategory, scheduledLeavingTime, updatedAt'
+    });
   }
 }
 

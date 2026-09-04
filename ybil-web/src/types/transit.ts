@@ -1,5 +1,8 @@
 import type { TimetableEntryResponse } from './api';
+
 export type OperatorType = 'SLTB' | 'PRIVATE';
+
+export type BusCategory = 'NORMAL' | 'SEMI' | 'LUXURY_AC' | 'EXPRESSWAY';
 
 export interface Route {
   id: string;
@@ -15,6 +18,7 @@ export interface TimetableEntry {
   origin: string;
   destination: string;
   operatorType: OperatorType;
+  busCategory: BusCategory;
   busNumber?: string;
   scheduledParkingTime: string; // "HH:mm"
   scheduledLeavingTime: string; // "HH:mm"

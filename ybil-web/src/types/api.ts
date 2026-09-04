@@ -1,4 +1,4 @@
-import type { Route, OperatorType } from './transit';
+import type { Route, OperatorType, BusCategory } from './transit';
 
 export interface RouteResponse {
   id: string;
@@ -11,6 +11,7 @@ export interface TimetableEntryResponse {
   id: string;
   route: RouteResponse;
   operatorType: OperatorType;
+  busCategory?: BusCategory;
   busNumber?: string;
   scheduledParkingTime: string;
   scheduledLeavingTime: string;
