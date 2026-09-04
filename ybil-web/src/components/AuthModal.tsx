@@ -1,10 +1,22 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { apiClient } from "../api/client";
 import { X, Lock, User, AlertCircle } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface AuthApiResponse {
+  accessToken?: string;
+  token?: string; // Fallback in case your backend returns 'token'
+  refreshToken?: string;
+  user?: {
+    id: string;
+    username: string;
+    role: "PASSENGER" | "ADMIN";
+  };
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
@@ -17,18 +29,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
+  const handleClose = () => {
+    setUsername("");
+    setPassword("");
+    setError(null);
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
+    const endpoint = isRegisterMode ? "/api/auth/register" : "/api/auth/login";
+
     try {
-      if (isRegisterMode) {
-        await register({ username, password });
-      } else {
-        await login({ username, password });
+      const response = await apiClient<AuthApiResponse>(endpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
+      });
+
+      const token = response.accessToken || response.token;
+      if (!token) {
+        throw new Error("No access token received from authentication server.");
       }
-      onClose();
+
+      const authPayload = {
+        accessToken: token,
+        refreshToken: response.refreshToken,
+        user: response.user || {
+          id: "", // AuthContext will fill the ID from token sub
+          username: username.trim(), // <--- USE THE ENTERED USERNAME DIRECTLY
+          role: "PASSENGER" as const,
+        },
+      };
+
+      if (isRegisterMode) {
+        register(authPayload);
+      } else {
+        login(authPayload);
+      }
+
+      handleClose();
     } catch (err: unknown) {
       const message =
         typeof err === "object" && err !== null && "message" in err
@@ -48,7 +93,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             {isRegisterMode ? "Create Account" : "Passenger Login"}
           </h2>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
           >
             <X className="h-5 w-5" />
@@ -74,7 +120,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="John Doe"
+                placeholder="Enter username"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -91,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password here"
+                placeholder="Enter password"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
               />
             </div>

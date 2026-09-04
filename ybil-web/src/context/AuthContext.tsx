@@ -1,71 +1,103 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
-import type { UserProfile, AuthResponse, LoginPayload, RegisterPayload } from '../types/auth';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: 'PASSENGER' | 'ADMIN';
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken?: string;
+  user?: AuthUser;
+}
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (credentials: LoginPayload) => Promise<void>;
-  register: (credentials: RegisterPayload) => Promise<void>;
+  login: (payload: { accessToken: string; refreshToken?: string; user?: AuthUser }) => void;
+  register: (payload: { accessToken: string; refreshToken?: string; user?: AuthUser }) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  const fetchCurrentUser = useCallback(async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      setUser(null);
-      setIsLoading(false);
-      return;
+  // Decode JWT payload safely without extra dependencies
+  const parseUserFromJwt = (token: string): AuthUser | null => {
+    try {
+      const base64Url = token.split('.')[1];
+      if (!base64Url) return null;
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
+
+      return {
+        id: payload.userId || payload.sub || '',
+        username: payload.username || payload.sub || 'Passenger',
+        role: payload.role?.replace('ROLE_', '') || 'PASSENGER',
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  // Synchronize authentication tokens and update React state immediately
+  const persistSession = (data: { accessToken: string; refreshToken?: string; user?: AuthUser }) => {
+    localStorage.setItem('access_token', data.accessToken);
+    if (data.refreshToken) {
+      localStorage.setItem('refresh_token', data.refreshToken);
     }
 
-    try {
-      const profile = await apiClient<UserProfile>('/api/auth/me');
-      setUser(profile);
-    } catch {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      setUser(null);
-    } finally {
-      setIsLoading(false);
+    const resolvedUser = data.user || parseUserFromJwt(data.accessToken);
+    if (resolvedUser) {
+      localStorage.setItem('user_data', JSON.stringify(resolvedUser));
+      setUser(resolvedUser);
+    }
+  };
+
+  // Restore session on initial mount / reload
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const storedUser = localStorage.getItem('user_data');
+
+    if (token) {
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+          return;
+        } catch {
+          // Fallback to token parsing if JSON is corrupt
+        }
+      }
+      const extracted = parseUserFromJwt(token);
+      if (extracted) {
+        setUser(extracted);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
-
-  const login = async (credentials: LoginPayload) => {
-    const data = await apiClient<AuthResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-
-    localStorage.setItem('access_token', data.accessToken);
-    localStorage.setItem('refresh_token', data.refreshToken);
-    setUser(data.user);
+  const login = (payload: { accessToken: string; refreshToken?: string; user?: AuthUser }) => {
+    persistSession(payload);
   };
 
-  const register = async (credentials: RegisterPayload) => {
-    const data = await apiClient<AuthResponse>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-
-    localStorage.setItem('access_token', data.accessToken);
-    localStorage.setItem('refresh_token', data.refreshToken);
-    setUser(data.user);
+  const register = (payload: { accessToken: string; refreshToken?: string; user?: AuthUser }) => {
+    // Automatically authenticate the session upon successful registration
+    persistSession(payload);
   };
 
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
     setUser(null);
   };
 
@@ -74,7 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isAuthenticated: !!user,
-        isLoading,
         login,
         register,
         logout,
@@ -85,10 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export function useAuth(): AuthContextType {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

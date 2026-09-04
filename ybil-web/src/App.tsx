@@ -15,7 +15,7 @@ import { Search, Filter, Eye, EyeOff } from "lucide-react";
 export default function App() {
   const now = useLiveClock(15000); // 15s interval tick
   const { isSyncing, isOnline, lastSyncTime, triggerSync } = useSync();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const [buses, setBuses] = useState<TimetableEntry[]>([]);
   const [activeTrip, setActiveTrip] = useState<MarkedTrip | null>(null);
@@ -32,22 +32,42 @@ export default function App() {
   };
 
   const loadActiveTrip = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       setActiveTrip(null);
       return;
     }
     try {
-      const trip = await apiClient<MarkedTrip>("/api/trips/me");
-      setActiveTrip(trip && trip.id ? trip : null);
-    } catch {
+      const response = await apiClient<MarkedTrip | MarkedTrip[] | null>(
+        "/api/trips/active",
+      );
+
+      if (Array.isArray(response)) {
+        if (response.length === 0) {
+          setActiveTrip(null);
+          return;
+        }
+        // Pick the most recently marked trip (or the first ACTIVE one)
+        const sorted = [...response].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        setActiveTrip(sorted[0] || null);
+      } else if (response && response.id) {
+        setActiveTrip(response);
+      } else {
+        setActiveTrip(null);
+      }
+    } catch (err) {
+      console.warn("Could not load active trip:", err);
       setActiveTrip(null);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     loadCachedTimetable();
   }, [lastSyncTime]);
 
+  // Re-fetch active trip whenever the user logs in, out, or loads the page
   useEffect(() => {
     loadActiveTrip();
   }, [loadActiveTrip]);
@@ -62,7 +82,9 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({ timetableEntryId }),
       });
-      setActiveTrip(newTrip);
+      if (newTrip && newTrip.id) {
+        setActiveTrip(newTrip);
+      }
     } catch (err) {
       console.error("Failed to mark trip:", err);
     }
@@ -77,10 +99,8 @@ export default function App() {
     }
   };
 
+  // With backend auto-supersede, marking a new bus will automatically cancel the old one
   const handleSwitchTrip = async (newEntryId: string) => {
-    if (activeTrip) {
-      await handleUnmarkTrip(activeTrip.id);
-    }
     await handleMarkTrip(newEntryId);
   };
 
