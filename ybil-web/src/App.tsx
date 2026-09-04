@@ -131,7 +131,7 @@ export default function App() {
   }, [buses, searchQuery, selectedOperator, showDeparted, now]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors">
       <Header
         isOnline={isOnline}
         isSyncing={isSyncing}
@@ -152,19 +152,19 @@ export default function App() {
         {/* Search & Filter Toolbar */}
         <div className="mb-4 space-y-2.5">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search destination (e.g., Kandy, Galle, 100)..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
             />
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs">
-              <Filter className="h-3.5 w-3.5 text-slate-500 mr-1" />
+              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-1" />
               {(["ALL", "SLTB", "PRIVATE"] as const).map((type) => (
                 <button
                   key={type}
@@ -172,7 +172,7 @@ export default function App() {
                   className={`rounded-lg px-2.5 py-1 font-medium transition ${
                     selectedOperator === type
                       ? "bg-blue-600 text-white"
-                      : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                      : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-800"
                   }`}
                 >
                   {type === "ALL" ? "All Operators" : type}
@@ -185,8 +185,8 @@ export default function App() {
               onClick={() => setShowDeparted(!showDeparted)}
               className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium border transition ${
                 showDeparted
-                  ? "border-slate-600 bg-slate-800 text-slate-200"
-                  : "border-slate-800 bg-slate-900 text-slate-400"
+                  ? "border-slate-300 bg-slate-200 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                  : "border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
               }`}
             >
               {showDeparted ? (
@@ -201,11 +201,11 @@ export default function App() {
 
         {/* Timetable List */}
         {filteredBuses.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center bg-white/40 dark:bg-slate-900/40">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               No active departures to show.
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
               {showDeparted
                 ? "Try adjusting your search criteria."
                 : 'Past buses are hidden. Turn on "Departed" to view them.'}

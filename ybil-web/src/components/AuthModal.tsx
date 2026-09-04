@@ -10,7 +10,7 @@ interface AuthModalProps {
 
 interface AuthApiResponse {
   accessToken?: string;
-  token?: string; // Fallback in case your backend returns 'token'
+  token?: string;
   refreshToken?: string;
   user?: {
     id: string;
@@ -61,8 +61,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         accessToken: token,
         refreshToken: response.refreshToken,
         user: response.user || {
-          id: "", // AuthContext will fill the ID from token sub
-          username: username.trim(), // <--- USE THE ENTERED USERNAME DIRECTLY
+          id: "",
+          username: username.trim(),
           role: "PASSENGER" as const,
         },
       };
@@ -86,23 +86,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 className="text-lg font-bold text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-sm p-4 transition-colors">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 transition-colors">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             {isRegisterMode ? "Create Account" : "Passenger Login"}
           </h2>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-800 bg-red-950/60 p-3 text-xs text-red-400">
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/60 dark:text-red-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -110,35 +110,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="text-xs font-semibold text-slate-300">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               Username
             </label>
             <div className="relative mt-1">
-              <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+              <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-950"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               Password
             </label>
             <div className="relative mt-1">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-950"
               />
             </div>
           </div>
@@ -156,7 +156,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </form>
 
-        <div className="mt-4 text-center text-xs text-slate-400">
+        <div className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
           {isRegisterMode ? "Already registered?" : "Don't have an account?"}{" "}
           <button
             type="button"
@@ -164,7 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               setIsRegisterMode(!isRegisterMode);
               setError(null);
             }}
-            className="font-semibold text-blue-400 hover:underline"
+            className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
           >
             {isRegisterMode ? "Log In" : "Sign Up"}
           </button>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-transit-sltb: #dc2626;
   --color-transit-private: #2563eb;
@@ -8,8 +10,6 @@
 }
 
 body {
-  background-color: #020617;
-  color: #f8fafc;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
