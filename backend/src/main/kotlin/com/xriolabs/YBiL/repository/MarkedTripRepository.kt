@@ -13,4 +13,20 @@ interface MarkedTripRepository : JpaRepository<MarkedTrip, UUID> {
 
     // Prevents duplicate active marks for the same user and timetable entry
     fun existsByUserIdAndTimetableEntryIdAndStatus(userId: UUID, timetableEntryId: UUID, status: TripStatus): Boolean
+
+    fun findByUserIdAndTimetableEntryIdAndStatus(
+        userId: UUID,
+        timetableEntryId: UUID,
+        status: TripStatus
+    ): MarkedTrip?
+
+    fun findAllByUserIdAndStatus(
+        userId: UUID,
+        status: TripStatus
+    ): List<MarkedTrip>
+
+    fun findByUserIdAndTimetableEntryId(
+        userId: UUID,
+        timetableEntryId: UUID
+    ): MarkedTrip?
 }

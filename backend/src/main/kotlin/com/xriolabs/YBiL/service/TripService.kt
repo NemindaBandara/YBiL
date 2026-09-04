@@ -19,31 +19,49 @@ class TripService(
 
     @Transactional
     fun markTrip(user: User, request: MarkTripRequest): MarkedTripResponse {
+        val userId = requireNotNull(user.id) { "User ID must not be null" }
+
         val entry = timetableEntryRepository.findById(request.timetableEntryId).orElseThrow {
             IllegalArgumentException("Timetable entry not found with ID: ${request.timetableEntryId}")
         }
 
-        // Guard against duplicate active bookmarks
-        val isAlreadyMarked = markedTripRepository.existsByUserIdAndTimetableEntryIdAndStatus(
-            userId = requireNotNull(user.id),
-            timetableEntryId = request.timetableEntryId,
+        // 1. Deactivate/cancel ALL currently ACTIVE trips for this user
+        val existingActiveTrips = markedTripRepository.findAllByUserIdAndStatus(
+            userId = userId,
             status = TripStatus.ACTIVE
         )
 
-        if (isAlreadyMarked) {
-            throw IllegalStateException("Trip is already marked and active")
+        // If the requested entry is already active, return it directly
+        val alreadyActive = existingActiveTrips.find { it.timetableEntry.id == request.timetableEntryId }
+        if (alreadyActive != null) {
+            return alreadyActive.toResponse()
         }
 
-        val markedTrip = MarkedTrip(
-            user = user,
-            timetableEntry = entry,
-            status = TripStatus.ACTIVE
+        if (existingActiveTrips.isNotEmpty()) {
+            existingActiveTrips.forEach { it.status = TripStatus.CANCELLED }
+            markedTripRepository.saveAll(existingActiveTrips)
+        }
+
+        // 2. Check if a previously CANCELLED record exists for this user + entry so we reactivate rather than duplicate
+        val existingTrip = markedTripRepository.findByUserIdAndTimetableEntryId(
+            userId = userId,
+            timetableEntryId = request.timetableEntryId
         )
 
-        val saved = markedTripRepository.save(markedTrip)
-        return saved.toResponse()
-    }
+        val savedTrip = if (existingTrip != null) {
+            existingTrip.status = TripStatus.ACTIVE
+            markedTripRepository.save(existingTrip)
+        } else {
+            val newMarkedTrip = MarkedTrip(
+                user = user,
+                timetableEntry = entry,
+                status = TripStatus.ACTIVE
+            )
+            markedTripRepository.save(newMarkedTrip)
+        }
 
+        return savedTrip.toResponse()
+    }
     @Transactional(readOnly = true)
     fun getActiveTrips(user: User): List<MarkedTripResponse> {
         return markedTripRepository.findByUserIdAndStatus(requireNotNull(user.id), TripStatus.ACTIVE)
