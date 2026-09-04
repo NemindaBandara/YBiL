@@ -21,4 +21,5 @@ export interface DeltaSyncResponse {
   syncedAt: number;
   totalCount: number;
   entries: TimetableEntryResponse[];
+  deletedEntryIds?: string[];
 }

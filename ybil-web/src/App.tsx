@@ -1,19 +1,29 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSync } from "./hooks/useSync";
+import { useAuth } from "./context/AuthContext";
+import { useLiveClock } from "./hooks/useLiveClock";
+import { apiClient } from "./api/client";
 import { timetableRepository } from "./db/timetableRepository";
-import type { TimetableEntry } from "./types/transit";
+import type { TimetableEntry, MarkedTrip } from "./types/transit";
+import { getDepartureStatus } from "./utils/timeUtils";
 import { Header } from "./components/Header";
 import { BusCard } from "./components/BusCard";
+import { ActiveTripShelf } from "./components/ActiveTripShelf";
 import { AuthModal } from "./components/AuthModal";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, Eye, EyeOff } from "lucide-react";
 
 export default function App() {
+  const now = useLiveClock(15000); // 15s interval tick
   const { isSyncing, isOnline, lastSyncTime, triggerSync } = useSync();
+  const { isAuthenticated } = useAuth();
+
   const [buses, setBuses] = useState<TimetableEntry[]>([]);
+  const [activeTrip, setActiveTrip] = useState<MarkedTrip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOperator, setSelectedOperator] = useState<
     "ALL" | "SLTB" | "PRIVATE"
   >("ALL");
+  const [showDeparted, setShowDeparted] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const loadCachedTimetable = async () => {
@@ -21,12 +31,73 @@ export default function App() {
     setBuses(list);
   };
 
+  const loadActiveTrip = useCallback(async () => {
+    if (!isAuthenticated) {
+      setActiveTrip(null);
+      return;
+    }
+    try {
+      const trip = await apiClient<MarkedTrip>("/api/trips/me");
+      setActiveTrip(trip && trip.id ? trip : null);
+    } catch {
+      setActiveTrip(null);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     loadCachedTimetable();
   }, [lastSyncTime]);
 
+  useEffect(() => {
+    loadActiveTrip();
+  }, [loadActiveTrip]);
+
+  const handleMarkTrip = async (timetableEntryId: string) => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      const newTrip = await apiClient<MarkedTrip>("/api/trips/mark", {
+        method: "POST",
+        body: JSON.stringify({ timetableEntryId }),
+      });
+      setActiveTrip(newTrip);
+    } catch (err) {
+      console.error("Failed to mark trip:", err);
+    }
+  };
+
+  const handleUnmarkTrip = async (tripId: string) => {
+    try {
+      await apiClient(`/api/trips/${tripId}`, { method: "DELETE" });
+      setActiveTrip(null);
+    } catch (err) {
+      console.error("Failed to unmark trip:", err);
+    }
+  };
+
+  const handleSwitchTrip = async (newEntryId: string) => {
+    if (activeTrip) {
+      await handleUnmarkTrip(activeTrip.id);
+    }
+    await handleMarkTrip(newEntryId);
+  };
+
+  const activeTripEntryId = useMemo(() => {
+    if (!activeTrip) return null;
+    return activeTrip.timetableEntry?.id ?? null;
+  }, [activeTrip]);
+
   const filteredBuses = useMemo(() => {
     return buses.filter((bus) => {
+      const status = getDepartureStatus(bus.scheduledLeavingTime, now);
+
+      // Auto-prune departed buses unless "Show departed" toggle is enabled
+      if (!showDeparted && status.shouldHide) {
+        return false;
+      }
+
       const matchesSearch =
         bus.destination.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bus.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,7 +108,7 @@ export default function App() {
 
       return matchesSearch && matchesOperator;
     });
-  }, [buses, searchQuery, selectedOperator]);
+  }, [buses, searchQuery, selectedOperator, showDeparted, now]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -49,7 +120,16 @@ export default function App() {
       />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5">
-        {/* Search & Filter Bar */}
+        {activeTrip && (
+          <ActiveTripShelf
+            activeTrip={activeTrip}
+            now={now}
+            onUnmark={handleUnmarkTrip}
+            onSwitchTrip={handleSwitchTrip}
+          />
+        )}
+
+        {/* Search & Filter Toolbar */}
         <div className="mb-4 space-y-2.5">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
@@ -62,38 +142,65 @@ export default function App() {
             />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs">
-            <Filter className="h-3.5 w-3.5 text-slate-500 mr-1" />
-            {(["ALL", "SLTB", "PRIVATE"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setSelectedOperator(type)}
-                className={`rounded-lg px-2.5 py-1 font-medium transition ${
-                  selectedOperator === type
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
-                }`}
-              >
-                {type === "ALL" ? "All Operators" : type}
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs">
+              <Filter className="h-3.5 w-3.5 text-slate-500 mr-1" />
+              {(["ALL", "SLTB", "PRIVATE"] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedOperator(type)}
+                  className={`rounded-lg px-2.5 py-1 font-medium transition ${
+                    selectedOperator === type
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                  }`}
+                >
+                  {type === "ALL" ? "All Operators" : type}
+                </button>
+              ))}
+            </div>
+
+            {/* Departed Toggle */}
+            <button
+              onClick={() => setShowDeparted(!showDeparted)}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium border transition ${
+                showDeparted
+                  ? "border-slate-600 bg-slate-800 text-slate-200"
+                  : "border-slate-800 bg-slate-900 text-slate-400"
+              }`}
+            >
+              {showDeparted ? (
+                <Eye className="h-3 w-3" />
+              ) : (
+                <EyeOff className="h-3 w-3" />
+              )}
+              <span>Departed</span>
+            </button>
           </div>
         </div>
 
-        {/* Timetable List View */}
+        {/* Timetable List */}
         {filteredBuses.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
             <p className="text-sm text-slate-400">
-              No scheduled departures found.
+              No active departures to show.
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Try adjusting your search filter or tap sync to fetch updates.
+              {showDeparted
+                ? "Try adjusting your search criteria."
+                : 'Past buses are hidden. Turn on "Departed" to view them.'}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {filteredBuses.map((bus) => (
-              <BusCard key={bus.id} bus={bus} />
+              <BusCard
+                key={bus.id}
+                bus={bus}
+                now={now}
+                onMarkTrip={handleMarkTrip}
+                isMarked={activeTripEntryId === bus.id}
+              />
             ))}
           </div>
         )}

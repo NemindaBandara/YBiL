@@ -1,3 +1,4 @@
+import type { TimetableEntryResponse } from './api';
 export type OperatorType = 'SLTB' | 'PRIVATE';
 
 export interface Route {
@@ -23,4 +24,15 @@ export interface TimetableEntry {
 export interface SyncMetadata {
   key: string;
   value: string;
+}
+
+export interface MarkedTrip {
+  id: string;
+  timetableEntry: TimetableEntryResponse;
+  status: 'ACTIVE' | 'MISSED' | 'COMPLETED' | 'CANCELLED';
+  createdAt: string;
+}
+
+export interface MarkTripPayload {
+  timetableEntryId: string;
 }

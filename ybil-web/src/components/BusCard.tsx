@@ -5,16 +5,32 @@ import { Bus, Clock, Bookmark } from 'lucide-react';
 
 interface BusCardProps {
   bus: TimetableEntry;
+  now: Date;
   onMarkTrip?: (busId: string) => void;
   isMarked?: boolean;
 }
 
-export const BusCard: React.FC<BusCardProps> = ({ bus, onMarkTrip, isMarked = false }) => {
-  const status = getDepartureStatus(bus.scheduledLeavingTime);
+export const BusCard: React.FC<BusCardProps> = ({ bus, now, onMarkTrip, isMarked = false }) => {
+  const status = getDepartureStatus(bus.scheduledLeavingTime, now);
+
+  const handleMark = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isMarked && !status.hasDeparted && onMarkTrip) {
+      onMarkTrip(bus.id);
+    }
+  };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 p-4 transition hover:border-slate-700">
-      {/* Operator Accent Strip */}
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-4 transition ${
+        isMarked
+          ? 'border-blue-500/60 bg-blue-950/20'
+          : status.hasDeparted
+          ? 'border-slate-800/40 bg-slate-900/40 opacity-50'
+          : 'border-slate-800 bg-slate-900/90 hover:border-slate-700'
+      }`}
+    >
       <div
         className={`absolute left-0 top-0 bottom-0 w-1.5 ${
           bus.operatorType === 'SLTB' ? 'bg-red-500' : 'bg-blue-500'
@@ -46,7 +62,6 @@ export const BusCard: React.FC<BusCardProps> = ({ bus, onMarkTrip, isMarked = fa
           </p>
         </div>
 
-        {/* Departure Time & Countdown Badge */}
         <div className="text-right shrink-0">
           <div className="text-base font-bold tracking-tight text-slate-100">
             {bus.scheduledLeavingTime}
@@ -66,21 +81,23 @@ export const BusCard: React.FC<BusCardProps> = ({ bus, onMarkTrip, isMarked = fa
         </div>
       </div>
 
-      {/* Footer Info & Action */}
       <div className="mt-3 flex items-center justify-between border-t border-slate-800/80 pt-2.5 pl-1 text-xs text-slate-400">
         <span className="flex items-center gap-1">
           <Bus className="h-3.5 w-3.5 text-slate-500" />
-          Stands from: <strong className="text-slate-300">{bus.scheduledParkingTime}</strong>
+          Stands: <strong className="text-slate-300">{bus.scheduledParkingTime}</strong>
         </span>
 
         {onMarkTrip && (
           <button
-            onClick={() => onMarkTrip(bus.id)}
+            type="button"
+            onClick={handleMark}
             disabled={isMarked || status.hasDeparted}
             className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
               isMarked
-                ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                : 'bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-40'
+                ? 'bg-blue-900/60 text-blue-200 border border-blue-700'
+                : status.hasDeparted
+                ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
             }`}
           >
             <Bookmark className={`h-3 w-3 ${isMarked ? 'fill-blue-400 text-blue-400' : ''}`} />

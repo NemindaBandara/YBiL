@@ -1,9 +1,11 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-export interface ApiErrorResponse {
-  status: number;
-  error: string;
-  message: string;
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
 }
 
 export async function apiClient<T>(
@@ -18,41 +20,41 @@ export async function apiClient<T>(
     ...options.headers,
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
 
   if (response.status === 401 && !endpoint.includes('/api/auth/')) {
-    // Attempt token refresh if an authenticated call fails
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      return apiClient<T>(endpoint, options);
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newToken = await performRefreshToken();
+      isRefreshing = false;
+      if (newToken) {
+        onRefreshed(newToken);
+        return apiClient<T>(endpoint, options);
+      }
+    } else {
+      return new Promise<T>((resolve) => {
+        refreshSubscribers.push(() => {
+          resolve(apiClient<T>(endpoint, options));
+        });
+      });
     }
   }
 
   if (!response.ok) {
-    const errorBody: ApiErrorResponse = await response.json().catch(() => ({
+    const errorBody = await response.json().catch(() => ({
       status: response.status,
-      error: 'Network Error',
-      message: response.statusText || 'An error occurred during network request',
+      message: response.statusText || 'Request failed',
     }));
     throw errorBody;
   }
 
-  if (response.status === 204) {
-    return {} as T;
-  }
-
+  if (response.status === 204) return {} as T;
   return response.json();
 }
 
-async function tryRefreshToken(): Promise<boolean> {
+async function performRefreshToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) {
-    localStorage.removeItem('access_token');
-    return false;
-  }
+  if (!refreshToken) return null;
 
   try {
     const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
@@ -61,15 +63,13 @@ async function tryRefreshToken(): Promise<boolean> {
       body: JSON.stringify({ refreshToken }),
     });
 
-    if (!res.ok) throw new Error('Token refresh failed');
+    if (!res.ok) return null;
 
     const data = await res.json();
     localStorage.setItem('access_token', data.accessToken);
-    localStorage.setItem('refresh_token', data.refreshToken);
-    return true;
+    if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken);
+    return data.accessToken;
   } catch {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    return false;
+    return null;
   }
 }
