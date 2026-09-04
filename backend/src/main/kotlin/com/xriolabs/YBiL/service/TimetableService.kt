@@ -41,6 +41,7 @@ class TimetableService(
         val entry = TimetableEntry(
             route = route,
             operatorType = request.operatorType,
+            busCategory = request.busCategory,
             busNumber = request.busNumber?.trim(),
             scheduledParkingTime = request.scheduledParkingTime,
             scheduledLeavingTime = request.scheduledLeavingTime,
@@ -68,6 +69,7 @@ class TimetableService(
         id = requireNotNull(this.id),
         route = this.route.toResponse(),
         operatorType = this.operatorType,
+        busCategory = this.busCategory,
         busNumber = this.busNumber,
         scheduledParkingTime = this.scheduledParkingTime,
         scheduledLeavingTime = this.scheduledLeavingTime,
@@ -80,7 +82,7 @@ class TimetableService(
         val serverSyncCheckpoint = Instant.now()
 
         val entries = if (sinceEpochMilli == null || sinceEpochMilli <= 0) {
-            // First install: fetch the full timetable snapshot
+            // Full timetable snapshot
             timetableEntryRepository.findAll()
         } else {
             // Incremental sync: only rows modified after client's last sync checkpoint

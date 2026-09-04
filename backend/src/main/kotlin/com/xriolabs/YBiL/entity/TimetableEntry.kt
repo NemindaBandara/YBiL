@@ -1,5 +1,6 @@
 package com.xriolabs.YBiL.entity
 
+import com.xriolabs.YBiL.entity.enums.BusCategory
 import com.xriolabs.YBiL.entity.enums.OperatorType
 import jakarta.persistence.*
 import org.hibernate.annotations.UpdateTimestamp
@@ -27,6 +28,10 @@ class TimetableEntry(
     @Enumerated(EnumType.STRING)
     @Column(name = "operator_type", nullable = false, length = 20)
     var operatorType: OperatorType,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bus_category", nullable = false, length = 30)
+    var busCategory: BusCategory = BusCategory.NORMAL,
 
     @Column(name = "bus_number", length = 30)
     var busNumber: String? = null,

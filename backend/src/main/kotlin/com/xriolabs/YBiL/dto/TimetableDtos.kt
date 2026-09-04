@@ -1,5 +1,6 @@
 package com.xriolabs.YBiL.dto
 
+import com.xriolabs.YBiL.entity.enums.BusCategory
 import com.xriolabs.YBiL.entity.enums.OperatorType
 import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.validation.constraints.NotBlank
@@ -32,6 +33,8 @@ data class CreateTimetableEntryRequest(
     @field:NotNull(message = "Operator type must be SLTB or PRIVATE")
     val operatorType: OperatorType,
 
+    val busCategory: BusCategory = BusCategory.NORMAL,
+
     val busNumber: String?,
 
     @field:NotNull(message = "Scheduled parking time is required")
@@ -47,6 +50,7 @@ data class TimetableEntryResponse(
     val id: UUID,
     val route: RouteResponse,
     val operatorType: OperatorType,
+    val busCategory: BusCategory = BusCategory.NORMAL,
     val busNumber: String?,
     @JsonFormat(pattern = "HH:mm")
     val scheduledParkingTime: LocalTime,
