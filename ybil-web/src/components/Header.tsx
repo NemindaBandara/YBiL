@@ -53,14 +53,14 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile Status Dot on Avatar Corner */}
             <span
               className="sm:hidden absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
-              title={isOnline ? "Live Sync Online" : "Offline"}
+              title={isOnline ? "ONLINE" : "OFFLINE"}
             >
               {isOnline && (
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               )}
               <span
                 className={`relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-[#162026] ${
-                  isOnline ? "bg-emerald-500" : "bg-amber-500"
+                  isOnline ? "bg-emerald-500" : "bg-rose-500"
                 }`}
               />
             </span>
@@ -68,8 +68,8 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Title Stack */}
           <div className="min-w-0">
-            {/* Top line: YBiL Colombo */}
-            <div className="flex items-center gap-1.5 truncate">
+            {/* Top line: YBiL Colombo & Status Pill */}
+            <div className="flex items-center gap-2 truncate">
               <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-tight truncate">
                 YBiL{" "}
                 <span className="text-[#2563eb] dark:text-cyan-400 font-semibold">
@@ -77,38 +77,28 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </h1>
 
-              {/* Status Pill on larger screens */}
+              {/* Status Pill */}
               <span
-                className={`hidden sm:inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide transition-colors shrink-0 ${
                   isOnline
                     ? "bg-[#e9f8f3] text-[#25856f] border border-[#25856f]/20 dark:bg-[#25856f]/20 dark:text-[#37be96] dark:border-[#37be96]/30"
-                    : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800"
+                    : "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800"
                 }`}
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
-                    isOnline ? "bg-[#37be96] animate-pulse" : "bg-amber-500"
+                    isOnline ? "bg-[#37be96] animate-pulse" : "bg-rose-500"
                   }`}
                 />
-                {isOnline ? "Live Sync" : "Offline"}
+                {isOnline ? "ONLINE" : "OFFLINE"}
               </span>
             </div>
 
-            {/* Bottom line: Combined location and micro status */}
+            {/* Bottom line: Station location */}
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 truncate leading-tight mt-0.5">
               <span>Central Bus Stand</span>
               <span className="text-slate-300 dark:text-slate-600">·</span>
-              <span className="sm:hidden flex items-center gap-1">
-                <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    isOnline ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-                  }`}
-                />
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                  {isOnline ? "Live" : "Offline"}
-                </span>
-              </span>
-              <span className="hidden sm:inline">Departures</span>
+              <span>Departures</span>
             </p>
           </div>
         </div>

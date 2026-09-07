@@ -111,9 +111,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           {/* Status Dot */}
           <span
             className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-white dark:border-[#162026] ${
-              isOnline ? "bg-emerald-500" : "bg-amber-500"
+              isOnline ? "bg-emerald-500" : "bg-rose-500"
             }`}
-            title={isOnline ? "Connected" : "Offline"}
+            title={isOnline ? "ONLINE" : "OFFLINE"}
           />
         </div>
 
@@ -179,7 +179,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             {isOnline ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertCircle className="h-4 w-4 text-rose-500" />
             )}
             <span className="font-medium">Sync Status</span>
           </div>
@@ -187,17 +187,17 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
               <span
                 className={`h-2 w-2 rounded-full ${
-                  isOnline ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
                 }`}
               />
               <span
                 className={
                   isOnline
                     ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-amber-600 dark:text-amber-400"
+                    : "text-rose-600 dark:text-rose-400"
                 }
               >
-                {isOnline ? "Connected" : "Offline"}
+                {isOnline ? "ONLINE" : "OFFLINE"}
               </span>
             </div>
             <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
