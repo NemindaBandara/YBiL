@@ -3,13 +3,56 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-transit-sltb: #dc2626;
-  --color-transit-private: #2563eb;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-transit-sltb: #e94b50;
+  --color-transit-private: #ead57b;
   --color-transit-surface: #0f172a;
-  --color-transit-card: #1e293b;
+  --color-transit-card: #162026;
+  --color-ybil-bg: #f4f7f7;
+  --color-ybil-surface: #ffffff;
+  --color-ybil-ink: #17232c;
+  --color-ybil-muted: #75838c;
+  --color-ybil-border: #dce5e8;
+  --color-ybil-sltb: #e94b50;
+  --color-ybil-private: #ead57b;
+}
+
+:root {
+  --bg-app: #f4f7f7;
+  --bg-surface: #ffffff;
+  --text-ink: #17232c;
+  --text-muted: #75838c;
+  --border-app: #dce5e8;
+  --operator-sltb: #e94b50;
+  --operator-private: #ead57b;
+}
+
+.dark {
+  --bg-app: #0f172a;
+  --bg-surface: #162026;
+  --text-ink: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-app: #334155;
 }
 
 body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-ink);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Custom scrollbar utility for horizontally scrolling chips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
