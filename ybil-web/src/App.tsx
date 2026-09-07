@@ -248,7 +248,6 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7f7] text-[#17232c] dark:bg-[#0f172a] dark:text-[#f8fafc] flex flex-col transition-colors">
     <div className="min-h-screen bg-[#f4f7f7] text-[#17232c] dark:bg-[#0f172a] dark:text-[#f8fafc] flex flex-col transition-colors overscroll-none touch-pan-y">
       <Header
         isOnline={isOnline}
@@ -257,7 +256,6 @@ export default function App() {
         onOpenAccount={navigateToAccount}
       />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 pb-28">
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
         {activeTab === "account" || activeTab === "profile" ? (
           <AccountPage
@@ -342,7 +340,7 @@ export default function App() {
               </div>
 
               {/* Bus Service Classification Chips (Horizontal Scrollable) */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar touch-pan-x">
                 {(
                   [
                     { key: "ALL", label: "All Types" },
