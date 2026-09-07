@@ -13,6 +13,7 @@ import { ActiveTripShelf } from "./components/ActiveTripShelf";
 import { AuthModal } from "./components/AuthModal";
 import { BottomNav, type NavTab } from "./components/BottomNav";
 import { AccountPage } from "./components/AccountPage";
+import { useTripAlerts } from "./hooks/useTripAlerts";
 import { Search, Eye, EyeOff } from "lucide-react";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   const { isAuthenticated, user } = useAuth();
 
   const [buses, setBuses] = useState<TimetableEntry[]>([]);
+  const { toggleTrackTrip, isTripTracked } = useTripAlerts(buses, now);
   const [activeTrip, setActiveTrip] = useState<MarkedTrip | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOperator, setSelectedOperator] = useState<
@@ -305,7 +307,7 @@ export default function App() {
                   [
                     { key: "ALL", label: "All Operators" },
                     { key: "SLTB", label: "SLTB" },
-                    { key: "PRIVATE", label: "PRIVATE" },
+                    { key: "PRIVATE", label: "Private" },
                   ] as const
                 ).map((item) => {
                   const isSelected = selectedOperator === item.key;
@@ -343,10 +345,10 @@ export default function App() {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar touch-pan-x">
                 {(
                   [
-                    { key: "ALL", label: "All Types" },
+                    { key: "ALL", label: "All" },
                     { key: "NORMAL", label: "Normal" },
-                    { key: "SEMI", label: "Semi-Exp" },
-                    { key: "LUXURY_AC", label: "A/C Luxury" },
+                    { key: "SEMI", label: "Semi-Luxury" },
+                    { key: "LUXURY_AC", label: "Luxury AC" },
                     { key: "EXPRESSWAY", label: "Expressway" },
                   ] as const
                 ).map((cat) => (
@@ -395,11 +397,11 @@ export default function App() {
             {filteredBuses.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#dce5e8] dark:border-[#334155] p-8 text-center bg-white/40 dark:bg-[#162026]/40">
                 <p className="text-sm font-semibold text-[#17232c] dark:text-slate-200">
-                  No active departures to show.
+                  No buses scheduled under this category.
                 </p>
                 <p className="mt-1 text-xs text-[#75838c] dark:text-[#94a3b8]">
                   {showDeparted
-                    ? "Try adjusting your search criteria or type filters."
+                    ? "Try adjusting your search criteria or operator filters."
                     : 'Past buses are hidden. Turn on "Departed" to view them.'}
                 </p>
               </div>
@@ -412,6 +414,8 @@ export default function App() {
                     now={now}
                     onMarkTrip={handleMarkTrip}
                     isMarked={activeTripEntryId === bus.id}
+                    onToggleTrack={toggleTrackTrip}
+                    isTracked={isTripTracked(bus.id)}
                   />
                 ))}
               </div>

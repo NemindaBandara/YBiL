@@ -9,6 +9,8 @@ import {
   Zap,
   Shield,
   Check,
+  Bell,
+  BellRing,
 } from "lucide-react";
 
 interface BusCardProps {
@@ -16,6 +18,8 @@ interface BusCardProps {
   now: Date;
   onMarkTrip?: (busId: string) => void;
   isMarked?: boolean;
+  onToggleTrack?: (busId: string) => void;
+  isTracked?: boolean;
 }
 
 const CATEGORY_CONFIG: Record<
@@ -52,6 +56,8 @@ export const BusCard: React.FC<BusCardProps> = ({
   now,
   onMarkTrip,
   isMarked = false,
+  onToggleTrack,
+  isTracked = false,
 }) => {
   const status = getDepartureStatus(bus.scheduledLeavingTime, now);
   const categoryConfig =
@@ -63,6 +69,14 @@ export const BusCard: React.FC<BusCardProps> = ({
     e.stopPropagation();
     if (!isMarked && !status.hasDeparted && onMarkTrip) {
       onMarkTrip(bus.id);
+    }
+  };
+
+  const handleTrack = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onToggleTrack) {
+      onToggleTrack(bus.id);
     }
   };
 
@@ -151,10 +165,12 @@ export const BusCard: React.FC<BusCardProps> = ({
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border transition-colors ${
                 status.hasDeparted
-                  ? "bg-slate-100 text-[#75838c] border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700"
-                  : status.isUrgent
-                    ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700 animate-pulse"
-                    : "bg-[#e9f8f3] text-[#25856f] border-[#25856f]/30 dark:bg-[#25856f]/20 dark:text-[#37be96] dark:border-[#37be96]/40"
+                  ? "bg-slate-100 text-[#75838c] border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700 opacity-70"
+                  : status.isImminent
+                    ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600 animate-pulse shadow-xs"
+                    : status.diffMinutes <= 60
+                      ? "bg-[#e9f8f3] text-[#25856f] border-[#25856f]/30 dark:bg-[#25856f]/20 dark:text-[#37be96] dark:border-[#37be96]/40"
+                      : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:border-slate-700"
               }`}
             >
               <Clock className="h-3 w-3 shrink-0" />
@@ -163,7 +179,7 @@ export const BusCard: React.FC<BusCardProps> = ({
           </div>
         </div>
 
-        {/* Card Footer: Stand Bay Info + Mark Bus Button */}
+        {/* Card Footer: Stand Bay Info + Actions (Track Alert & Mark Bus) */}
         <div className="mt-3.5 flex items-center justify-between border-t border-[#dce5e8] pt-2.5 text-xs text-[#75838c] dark:border-[#334155] dark:text-[#94a3b8]">
           <div className="flex items-center gap-1.5 font-medium">
             <span>
@@ -182,32 +198,60 @@ export const BusCard: React.FC<BusCardProps> = ({
             )}
           </div>
 
-          {onMarkTrip && (
-            <button
-              type="button"
-              onClick={handleMark}
-              disabled={isMarked || status.hasDeparted}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
-                isMarked
-                  ? "bg-blue-600 text-white shadow-xs dark:bg-cyan-500 dark:text-slate-950 cursor-default"
-                  : status.hasDeparted
-                    ? "bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800/40 dark:text-slate-600 dark:border-slate-800 cursor-not-allowed"
-                    : "bg-[#f4f7f7] text-[#17232c] border border-[#dce5e8] hover:bg-slate-200 hover:text-black dark:bg-slate-800 dark:text-slate-100 dark:border-[#334155] dark:hover:bg-slate-700"
-              }`}
-            >
-              {isMarked ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Saved</span>
-                </>
-              ) : (
-                <>
-                  <Bookmark className="h-3.5 w-3.5" />
-                  <span>Mark Bus</span>
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {/* Bell / Track Departure Alert Button */}
+            {onToggleTrack && (
+              <button
+                type="button"
+                onClick={handleTrack}
+                title={
+                  isTracked ? "Stop Departure Alerts" : "Track Departure Alert"
+                }
+                aria-label={
+                  isTracked ? "Stop Departure Alerts" : "Track Departure Alert"
+                }
+                className={`inline-flex items-center justify-center h-8 w-8 rounded-xl transition-all duration-150 relative before:absolute before:-inset-1 before:content-[''] active:scale-95 ${
+                  isTracked
+                    ? "bg-amber-500 text-white shadow-xs dark:bg-amber-400 dark:text-slate-950 ring-2 ring-amber-400/30"
+                    : "bg-[#f4f7f7] text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-[#334155] dark:hover:text-white"
+                }`}
+              >
+                {isTracked ? (
+                  <BellRing className="h-3.5 w-3.5" />
+                ) : (
+                  <Bell className="h-3.5 w-3.5" />
+                )}
+              </button>
+            )}
+
+            {/* Mark Bus Button */}
+            {onMarkTrip && (
+              <button
+                type="button"
+                onClick={handleMark}
+                disabled={isMarked || status.hasDeparted}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all duration-150 ${
+                  isMarked
+                    ? "bg-blue-600 text-white shadow-xs dark:bg-cyan-500 dark:text-slate-950 cursor-default"
+                    : status.hasDeparted
+                      ? "bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800/40 dark:text-slate-600 dark:border-slate-800 cursor-not-allowed"
+                      : "bg-[#f4f7f7] text-[#17232c] border border-[#dce5e8] hover:bg-slate-200 hover:text-black dark:bg-slate-800 dark:text-slate-100 dark:border-[#334155] dark:hover:bg-slate-700"
+                }`}
+              >
+                {isMarked ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Saved</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="h-3.5 w-3.5" />
+                    <span>Mark Bus</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>
