@@ -15,3 +15,8 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG

@@ -22,35 +22,54 @@ class JwtAuthFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        // Preflight OPTIONS requests must bypass JWT authentication entirely
+        // 1. Preflight OPTIONS requests bypass
         if ("OPTIONS".equals(request.method, ignoreCase = true)) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
+        val path = request.servletPath
+
+        // 2. Only bypass endpoints that are strictly unauthenticated
+        // DO NOT bypass /api/auth/me since it requires the Bearer token
+        if (path.startsWith("/api/public/") ||
+            path == "/api/auth/login" ||
+            path == "/api/auth/register" ||
+            path == "/api/auth/refresh"
+        ) {
             filterChain.doFilter(request, response)
             return
         }
 
         val authHeader = request.getHeader("Authorization")
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader.isNullOrBlank() || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response)
             return
         }
 
-        val jwt = authHeader.substring(7)
-        val userId = jwtService.validateAndGetUserId(jwt)
+        val jwt = authHeader.substring(7).trim()
 
-        if (userId != null && SecurityContextHolder.getContext().authentication == null) {
-            val user = userRepository.findById(userId).orElse(null)
+        try {
+            val userId = jwtService.validateAndGetUserId(jwt)
 
-            if (user != null) {
-                val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
-                val authToken = UsernamePasswordAuthenticationToken(
-                    user,
-                    null,
-                    authorities
-                )
-                authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
-                SecurityContextHolder.getContext().authentication = authToken
+            if (userId != null && SecurityContextHolder.getContext().authentication == null) {
+                val user = userRepository.findById(userId).orElse(null)
+
+                if (user != null) {
+                    val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
+                    val authToken = UsernamePasswordAuthenticationToken(
+                        user,
+                        null,
+                        authorities
+                    )
+                    authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
+                    SecurityContextHolder.getContext().authentication = authToken
+                }
             }
+        } catch (ex: Exception) {
+            // Clear context if token is expired or malformed
+            SecurityContextHolder.clearContext()
         }
 
         filterChain.doFilter(request, response)

@@ -30,8 +30,8 @@ class TimetableEntry(
     var operatorType: OperatorType,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "bus_category", nullable = false, length = 30)
-    var busCategory: BusCategory = BusCategory.NORMAL,
+    @Column(name = "bus_category", nullable = true, length = 30)
+    var busCategory: BusCategory,
 
     @Column(name = "bus_number", length = 30)
     var busNumber: String? = null,

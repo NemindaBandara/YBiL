@@ -125,6 +125,7 @@ class TripService(
                         destination = alt.route.destination
                     ),
                     operatorType = alt.operatorType,
+                    busCategory = alt.busCategory,
                     busNumber = alt.busNumber,
                     scheduledParkingTime = alt.scheduledParkingTime,
                     scheduledLeavingTime = alt.scheduledLeavingTime,
@@ -145,6 +146,7 @@ class TripService(
                 destination = this.timetableEntry.route.destination
             ),
             operatorType = this.timetableEntry.operatorType,
+            busCategory = this.timetableEntry.busCategory,
             busNumber = this.timetableEntry.busNumber,
             scheduledParkingTime = this.timetableEntry.scheduledParkingTime,
             scheduledLeavingTime = this.timetableEntry.scheduledLeavingTime,

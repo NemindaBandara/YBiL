@@ -13,7 +13,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
-import org.springframework.web.filter.CorsFilter
 
 @Configuration
 @EnableWebSecurity
@@ -31,6 +30,7 @@ class SecurityConfig(
             .authorizeHttpRequests { auth ->
                 // Allow all preflight OPTIONS unconditionally
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                auth.requestMatchers("/error").permitAll()
 
                 // Actuator & Health
                 auth.requestMatchers("/api/health", "/actuator/**").permitAll()
@@ -49,11 +49,10 @@ class SecurityConfig(
                 // Admin
                 auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                // Everything else
+                // Everything else requires authentication
                 auth.anyRequest().authenticated()
             }
             .authenticationProvider(authenticationProvider)
-            .addFilterBefore(corsFilter(), UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
@@ -73,10 +72,5 @@ class SecurityConfig(
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", configuration)
         return source
-    }
-
-    @Bean
-    fun corsFilter(): CorsFilter {
-        return CorsFilter(corsConfigurationSource())
     }
 }

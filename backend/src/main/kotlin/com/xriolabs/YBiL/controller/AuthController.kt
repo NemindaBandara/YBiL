@@ -35,7 +35,11 @@ class AuthController(
 
     // Protected verification endpoint: tests that Bearer tokens work
     @GetMapping("/me")
-    fun getCurrentUser(@AuthenticationPrincipal user: User): ResponseEntity<UserSummaryDto> {
+    fun getCurrentUser(@AuthenticationPrincipal user: User?): ResponseEntity<Any> {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("message" to "Not authenticated"))
+        }
+
         val summary = UserSummaryDto(
             id = user.id.toString(),
             username = user.username,
