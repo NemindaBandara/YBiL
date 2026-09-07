@@ -36,11 +36,18 @@
   --border-app: #334155;
 }
 
+html,
+body {
+  overscroll-behavior-y: none;
+  touch-action: pan-y;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-app);
   color: var(--text-ink);
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 

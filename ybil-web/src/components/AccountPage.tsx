@@ -12,7 +12,9 @@ import {
   Copy,
   Check,
   LogIn,
+  Download,
 } from "lucide-react";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 
 interface AccountPageProps {
   onBack: () => void;
@@ -28,6 +30,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   lastSyncTime,
 }) => {
   const { user: authUser, isAuthenticated, logout } = useAuth();
+  const { isInstallable, isInstalled, installApp } = usePWAInstall();
   const [userData, setUserData] = useState<AuthUser | null>(authUser);
   const [copied, setCopied] = useState(false);
 
@@ -159,6 +162,44 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* PWA Install Call-to-Action Tile */}
+      {isInstallable && !isInstalled && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900 dark:from-blue-600 dark:via-blue-700 dark:to-slate-800 rounded-2xl p-4 text-white shadow-sm border border-blue-500/20 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-cyan-300 shrink-0" />
+              <h3 className="text-sm font-bold leading-tight">
+                Install YBiL App
+              </h3>
+            </div>
+            <p className="text-xs text-blue-100/90 dark:text-slate-300 mt-1 leading-snug">
+              Add to home screen for faster offline access
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={installApp}
+            className="shrink-0 inline-flex items-center gap-1.5 bg-white text-blue-700 dark:bg-cyan-400 dark:text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs hover:bg-blue-50 active:scale-95 transition-all"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Install</span>
+          </button>
+        </div>
+      )}
+
+      {/* Subtle App Installed Checkmark Badge */}
+      {isInstalled && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-[#e9f8f3] dark:bg-[#25856f]/20 border border-[#25856f]/20 dark:border-[#37be96]/30 text-[#25856f] dark:text-[#37be96] text-xs font-semibold animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-[#37be96] shrink-0" />
+            <span>App Installed</span>
+          </div>
+          <span className="text-[11px] font-normal opacity-80">
+            Standalone Mode Active
+          </span>
+        </div>
+      )}
 
       {/* C. Details & Settings Section */}
       <div className="bg-white dark:bg-[#162026] rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-xs transition-colors">

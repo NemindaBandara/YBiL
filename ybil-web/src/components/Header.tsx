@@ -42,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-50 w-full px-4 py-3 bg-white/95 dark:bg-[#162026]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 transition-colors">
+    <header className="sticky top-0 z-50 w-full px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3 bg-white/95 dark:bg-[#162026]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 transition-colors">
       <div className="mx-auto flex max-w-2xl items-center justify-between">
         {/* Left Section: Identity & Status */}
         <div className="inline-flex items-center gap-2.5 min-w-0">

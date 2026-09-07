@@ -19,9 +19,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 h-[67px] backdrop-blur-md bg-white/85 dark:bg-[#162026]/85 border-t border-[#dce5e8] dark:border-[#334155] transition-colors"
+      className="fixed bottom-0 left-0 right-0 z-40 h-[calc(64px+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md bg-white/85 dark:bg-[#162026]/85 border-t border-[#dce5e8] dark:border-[#334155] transition-colors"
       aria-label="Bottom Navigation"
     >
       <div className="mx-auto flex h-full max-w-2xl items-center justify-around px-4">
+      <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-4">
         {/* Departures */}
         <button
           type="button"
