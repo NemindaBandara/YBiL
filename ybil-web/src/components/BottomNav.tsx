@@ -1,14 +1,13 @@
 import React from "react";
 import { Bus, Bookmark, MapPin, User } from "lucide-react";
 
-export type NavTab = "departures" | "saved" | "routes" | "profile";
+export type NavTab = "departures" | "saved" | "routes" | "account" | "profile";
 
 interface BottomNavProps {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   hasActiveTrip: boolean;
   isAuthenticated: boolean;
-  username?: string;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -16,7 +15,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
   hasActiveTrip,
   isAuthenticated,
-  username,
 }) => {
   return (
     <nav
@@ -76,12 +74,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-[11px] tracking-tight">Routes</span>
         </button>
 
-        {/* Profile / Auth */}
+        {/* Account Tab */}
         <button
           type="button"
-          onClick={() => onTabChange("profile")}
+          onClick={() => onTabChange("account")}
           className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
-            activeTab === "profile"
+            activeTab === "account" || activeTab === "profile"
               ? "text-blue-600 dark:text-cyan-400 font-bold"
               : "text-[#75838c] dark:text-[#94a3b8] hover:text-[#17232c] dark:hover:text-white font-medium"
           }`}
@@ -92,9 +90,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500" />
             )}
           </div>
-          <span className="text-[11px] tracking-tight truncate max-w-[60px]">
-            {isAuthenticated && username ? username : "Profile"}
-          </span>
+          <span className="text-[11px] tracking-tight">Account</span>
         </button>
       </div>
     </nav>

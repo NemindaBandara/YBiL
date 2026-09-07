@@ -14,11 +14,19 @@ export interface SyncResult {
 export const syncService = {
   async runDeltaSync(): Promise<SyncResult> {
     try {
-      const lastSyncedAt = await timetableRepository.getLastSyncTime();
+      const localCount = await db.timetable.count();
+      const lastSyncedAt = localCount > 0 ? await timetableRepository.getLastSyncTime() : 0;
       const queryParam = lastSyncedAt > 0 ? `?since=${lastSyncedAt}` : '';
       const response = await apiClient<DeltaSyncResponse>(`/api/public/timetable/sync${queryParam}`);
 
-      const { entries, syncedAt, totalCount } = response;
+      const entries = response?.entries || [];
+      const syncedAt = response?.syncedAt || Date.now();
+      const totalCount = response?.totalCount ?? entries.length;
+
+      // Handle deleted entries if any
+      if (response?.deletedEntryIds && response.deletedEntryIds.length > 0) {
+        await db.timetable.bulkDelete(response.deletedEntryIds);
+      }
 
       if (entries.length > 0) {
         const routesMap = new Map<string, Route>();

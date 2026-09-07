@@ -12,6 +12,7 @@ import { BusCard } from "./components/BusCard";
 import { ActiveTripShelf } from "./components/ActiveTripShelf";
 import { AuthModal } from "./components/AuthModal";
 import { BottomNav, type NavTab } from "./components/BottomNav";
+import { AccountPage } from "./components/AccountPage";
 import { Search, Eye, EyeOff } from "lucide-react";
 
 export default function App() {
@@ -32,9 +33,14 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>("departures");
 
-  const loadCachedTimetable = async () => {
+  const loadCachedTimetable = useCallback(async () => {
     const list = await timetableRepository.getAllEntries();
     setBuses(list);
+  }, []);
+
+  const handleSync = async () => {
+    await triggerSync();
+    await loadCachedTimetable();
   };
 
   const loadActiveTrip = useCallback(async () => {
@@ -70,7 +76,7 @@ export default function App() {
 
   useEffect(() => {
     loadCachedTimetable();
-  }, [lastSyncTime]);
+  }, [lastSyncTime, loadCachedTimetable]);
 
   useEffect(() => {
     loadActiveTrip();
@@ -170,7 +176,59 @@ export default function App() {
     now,
   ]);
 
+  const navigateToAccount = useCallback(() => {
+    if (window.location.pathname !== "/account") {
+      window.history.pushState(null, "", "/account");
+    }
+    setActiveTab("account");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const navigateToDepartures = useCallback(() => {
+    if (window.location.pathname === "/account") {
+      window.history.pushState(null, "", "/");
+    }
+    setActiveTab("departures");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const handleBackFromAccount = useCallback(() => {
+    if (window.history.length > 1 && window.location.pathname === "/account") {
+      window.history.back();
+    } else {
+      navigateToDepartures();
+    }
+  }, [navigateToDepartures]);
+
+  useEffect(() => {
+    if (window.location.pathname === "/account") {
+      setActiveTab("account");
+    }
+
+    const handlePopState = () => {
+      if (window.location.pathname === "/account") {
+        setActiveTab("account");
+      } else {
+        setActiveTab("departures");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const handleTabChange = (tab: NavTab) => {
+    if (tab === "account" || tab === "profile") {
+      navigateToAccount();
+      return;
+    }
+
+    if (activeTab === "account" || activeTab === "profile") {
+      if (window.location.pathname === "/account") {
+        window.history.pushState(null, "", "/");
+      }
+    }
+
     setActiveTab(tab);
     if (tab === "departures") {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -186,10 +244,6 @@ export default function App() {
       if (filterElement) {
         filterElement.scrollIntoView({ behavior: "smooth" });
       }
-    } else if (tab === "profile") {
-      if (!isAuthenticated) {
-        setIsAuthModalOpen(true);
-      }
     }
   };
 
@@ -198,159 +252,171 @@ export default function App() {
       <Header
         isOnline={isOnline}
         isSyncing={isSyncing}
-        onSync={triggerSync}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onSync={handleSync}
+        onOpenAccount={navigateToAccount}
       />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 pb-28">
-        {/* Live Hero Showcase */}
-        <HeroBanner
-          totalBusesToday={totalBusesToday}
-          nextDepartureCountdown={nextUpcomingDeparture?.countdown ?? null}
-          nextDepartureTime={nextUpcomingDeparture?.time ?? null}
-          totalActiveRoutes={totalActiveRoutes}
-          selectedOperator={selectedOperator}
-        />
-
-        {/* Active Marked Trip Shelf */}
-        {activeTrip && (
-          <ActiveTripShelf
-            activeTrip={activeTrip}
-            now={now}
-            onUnmark={handleUnmarkTrip}
-            onSwitchTrip={handleSwitchTrip}
+        {activeTab === "account" || activeTab === "profile" ? (
+          <AccountPage
+            onBack={handleBackFromAccount}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            isOnline={isOnline}
+            lastSyncTime={lastSyncTime}
           />
-        )}
-
-        {/* Search & Filter Toolbar */}
-        <div id="search-toolbar" className="mb-4 space-y-3">
-          {/* Pill Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#75838c] dark:text-[#94a3b8]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search destination, route (e.g., Kandy, Galle, 138)..."
-              className="w-full rounded-2xl border border-[#dce5e8] bg-white py-2.5 pl-10 pr-4 text-sm text-[#17232c] placeholder-[#75838c] shadow-xs focus:border-blue-600 focus:outline-none dark:border-[#334155] dark:bg-[#162026] dark:text-white dark:placeholder-[#94a3b8] dark:focus:border-cyan-400 transition-all"
+        ) : (
+          <>
+            {/* Live Hero Showcase */}
+            <HeroBanner
+              totalBusesToday={totalBusesToday}
+              nextDepartureCountdown={nextUpcomingDeparture?.countdown ?? null}
+              nextDepartureTime={nextUpcomingDeparture?.time ?? null}
+              totalActiveRoutes={totalActiveRoutes}
+              selectedOperator={selectedOperator}
             />
-          </div>
 
-          {/* Operator Chips Row */}
-          <div className="flex items-center gap-2">
-            {(
-              [
-                { key: "ALL", label: "All Operators" },
-                { key: "SLTB", label: "SLTB" },
-                { key: "PRIVATE", label: "PRIVATE" },
-              ] as const
-            ).map((item) => {
-              const isSelected = selectedOperator === item.key;
-              const isSltb = item.key === "SLTB";
-              const isPrivate = item.key === "PRIVATE";
+            {/* Active Marked Trip Shelf */}
+            {activeTrip && (
+              <ActiveTripShelf
+                activeTrip={activeTrip}
+                now={now}
+                onUnmark={handleUnmarkTrip}
+                onSwitchTrip={handleSwitchTrip}
+              />
+            )}
 
-              let activeClasses =
-                "bg-[#17232c] text-white shadow-xs dark:bg-slate-700 dark:text-white";
-              if (isSltb) {
-                activeClasses = "bg-[#e94b50] text-white shadow-xs font-bold";
-              } else if (isPrivate) {
-                activeClasses =
-                  "bg-[#ead57b] text-[#17232c] shadow-xs font-bold";
-              }
+            {/* Search & Filter Toolbar */}
+            <div id="search-toolbar" className="mb-4 space-y-3">
+              {/* Pill Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#75838c] dark:text-[#94a3b8]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search destination, route (e.g., Kandy, Galle, 138)..."
+                  className="w-full rounded-2xl border border-[#dce5e8] bg-white py-2.5 pl-10 pr-4 text-sm text-[#17232c] placeholder-[#75838c] shadow-xs focus:border-blue-600 focus:outline-none dark:border-[#334155] dark:bg-[#162026] dark:text-white dark:placeholder-[#94a3b8] dark:focus:border-cyan-400 transition-all"
+                />
+              </div>
 
-              return (
+              {/* Operator Chips Row */}
+              <div className="flex items-center gap-2">
+                {(
+                  [
+                    { key: "ALL", label: "All Operators" },
+                    { key: "SLTB", label: "SLTB" },
+                    { key: "PRIVATE", label: "PRIVATE" },
+                  ] as const
+                ).map((item) => {
+                  const isSelected = selectedOperator === item.key;
+                  const isSltb = item.key === "SLTB";
+                  const isPrivate = item.key === "PRIVATE";
+
+                  let activeClasses =
+                    "bg-[#17232c] text-white shadow-xs dark:bg-slate-700 dark:text-white";
+                  if (isSltb) {
+                    activeClasses =
+                      "bg-[#e94b50] text-white shadow-xs font-bold";
+                  } else if (isPrivate) {
+                    activeClasses =
+                      "bg-[#ead57b] text-[#17232c] shadow-xs font-bold";
+                  }
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setSelectedOperator(item.key)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                        isSelected
+                          ? activeClasses
+                          : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Bus Service Classification Chips (Horizontal Scrollable) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                {(
+                  [
+                    { key: "ALL", label: "All Types" },
+                    { key: "NORMAL", label: "Normal" },
+                    { key: "SEMI", label: "Semi-Exp" },
+                    { key: "LUXURY_AC", label: "A/C Luxury" },
+                    { key: "EXPRESSWAY", label: "Expressway" },
+                  ] as const
+                ).map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.key)}
+                    className={`whitespace-nowrap rounded-xl px-3 py-1 text-xs font-semibold transition-all duration-150 ${
+                      selectedCategory === cat.key
+                        ? "bg-[#17232c] text-white dark:bg-cyan-500 dark:text-slate-950 shadow-xs"
+                        : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Departures Sub-header: Services Count & Departed Visibility Toggle */}
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <span className="font-bold text-[#17232c] dark:text-white font-display">
+                  {filteredBuses.length}{" "}
+                  {filteredBuses.length === 1 ? "service" : "services"} found
+                </span>
+
                 <button
-                  key={item.key}
                   type="button"
-                  onClick={() => setSelectedOperator(item.key)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                    isSelected
-                      ? activeClasses
-                      : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
+                  onClick={() => setShowDeparted(!showDeparted)}
+                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-all ${
+                    showDeparted
+                      ? "border-[#17232c] bg-[#17232c] text-white dark:border-cyan-400 dark:bg-cyan-500 dark:text-slate-950"
+                      : "border-[#dce5e8] bg-white text-[#75838c] hover:text-[#17232c] dark:border-[#334155] dark:bg-[#162026] dark:text-[#94a3b8] dark:hover:text-white"
                   }`}
                 >
-                  {item.label}
+                  {showDeparted ? (
+                    <Eye className="h-3.5 w-3.5" />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  )}
+                  <span>Departed</span>
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </div>
 
-          {/* Bus Service Classification Chips (Horizontal Scrollable) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-            {(
-              [
-                { key: "ALL", label: "All Types" },
-                { key: "NORMAL", label: "Normal" },
-                { key: "SEMI", label: "Semi-Exp" },
-                { key: "LUXURY_AC", label: "A/C Luxury" },
-                { key: "EXPRESSWAY", label: "Expressway" },
-              ] as const
-            ).map((cat) => (
-              <button
-                key={cat.key}
-                type="button"
-                onClick={() => setSelectedCategory(cat.key)}
-                className={`whitespace-nowrap rounded-xl px-3 py-1 text-xs font-semibold transition-all duration-150 ${
-                  selectedCategory === cat.key
-                    ? "bg-[#17232c] text-white dark:bg-cyan-500 dark:text-slate-950 shadow-xs"
-                    : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Departures Sub-header: Services Count & Departed Visibility Toggle */}
-          <div className="flex items-center justify-between pt-1 text-xs">
-            <span className="font-bold text-[#17232c] dark:text-white font-display">
-              {filteredBuses.length}{" "}
-              {filteredBuses.length === 1 ? "service" : "services"} found
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setShowDeparted(!showDeparted)}
-              className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-all ${
-                showDeparted
-                  ? "border-[#17232c] bg-[#17232c] text-white dark:border-cyan-400 dark:bg-cyan-500 dark:text-slate-950"
-                  : "border-[#dce5e8] bg-white text-[#75838c] hover:text-[#17232c] dark:border-[#334155] dark:bg-[#162026] dark:text-[#94a3b8] dark:hover:text-white"
-              }`}
-            >
-              {showDeparted ? (
-                <Eye className="h-3.5 w-3.5" />
-              ) : (
-                <EyeOff className="h-3.5 w-3.5" />
-              )}
-              <span>Departed</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Timetable List */}
-        {filteredBuses.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#dce5e8] dark:border-[#334155] p-8 text-center bg-white/40 dark:bg-[#162026]/40">
-            <p className="text-sm font-semibold text-[#17232c] dark:text-slate-200">
-              No active departures to show.
-            </p>
-            <p className="mt-1 text-xs text-[#75838c] dark:text-[#94a3b8]">
-              {showDeparted
-                ? "Try adjusting your search criteria or type filters."
-                : 'Past buses are hidden. Turn on "Departed" to view them.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredBuses.map((bus) => (
-              <BusCard
-                key={bus.id}
-                bus={bus}
-                now={now}
-                onMarkTrip={handleMarkTrip}
-                isMarked={activeTripEntryId === bus.id}
-              />
-            ))}
-          </div>
+            {/* Timetable List */}
+            {filteredBuses.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#dce5e8] dark:border-[#334155] p-8 text-center bg-white/40 dark:bg-[#162026]/40">
+                <p className="text-sm font-semibold text-[#17232c] dark:text-slate-200">
+                  No active departures to show.
+                </p>
+                <p className="mt-1 text-xs text-[#75838c] dark:text-[#94a3b8]">
+                  {showDeparted
+                    ? "Try adjusting your search criteria or type filters."
+                    : 'Past buses are hidden. Turn on "Departed" to view them.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredBuses.map((bus) => (
+                  <BusCard
+                    key={bus.id}
+                    bus={bus}
+                    now={now}
+                    onMarkTrip={handleMarkTrip}
+                    isMarked={activeTripEntryId === bus.id}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -360,7 +426,6 @@ export default function App() {
         onTabChange={handleTabChange}
         hasActiveTrip={!!activeTrip}
         isAuthenticated={isAuthenticated}
-        username={user?.username}
       />
 
       <AuthModal

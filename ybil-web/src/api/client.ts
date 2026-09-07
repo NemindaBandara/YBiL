@@ -1,4 +1,9 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_API_BASE_URL
+    : import.meta.env.DEV
+      ? ""
+      : "http://localhost:8080";
 
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -13,16 +18,17 @@ export async function apiClient<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = localStorage.getItem('access_token');
+  const isPublicEndpoint = endpoint.startsWith('/api/public/');
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token && !isPublicEndpoint ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
 
-  if (response.status === 401 && !endpoint.includes('/api/auth/')) {
+  if (response.status === 401 && !endpoint.includes('/api/auth/') && !isPublicEndpoint) {
     if (!isRefreshing) {
       isRefreshing = true;
       const newToken = await performRefreshToken();

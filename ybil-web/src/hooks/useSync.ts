@@ -14,10 +14,6 @@ export function useSync() {
   }, []);
 
   const triggerSync = useCallback(async (): Promise<SyncResult> => {
-    if (!navigator.onLine) {
-      return { success: false, syncedCount: 0, serverTime: 0, error: 'Device is offline' };
-    }
-
     setIsSyncing(true);
     setSyncError(null);
 
@@ -25,8 +21,17 @@ export function useSync() {
 
     if (!result.success && result.error) {
       setSyncError(result.error);
+      const errLower = result.error.toLowerCase();
+      if (
+        errLower.includes('failed to fetch') ||
+        errLower.includes('network') ||
+        errLower.includes('offline')
+      ) {
+        setIsOnline(false);
+      }
     } else {
-      setLastSyncTime(result.serverTime);
+      setIsOnline(true);
+      setLastSyncTime(result.serverTime || Date.now());
     }
 
     setIsSyncing(false);

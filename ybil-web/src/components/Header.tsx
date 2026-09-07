@@ -2,22 +2,22 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemeMode } from "../context/ThemeContext";
-import { RefreshCw, User, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { RefreshCw, User, Sun, Moon, Monitor } from "lucide-react";
 
 interface HeaderProps {
   isOnline: boolean;
   isSyncing: boolean;
   onSync: () => void;
-  onOpenAuth: () => void;
+  onOpenAccount: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   isOnline,
   isSyncing,
   onSync,
-  onOpenAuth,
+  onOpenAccount,
 }) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const cycleTheme = () => {
@@ -35,113 +35,135 @@ export const Header: React.FC<HeaderProps> = ({
       case "system":
       default:
         return (
-          <Monitor className="h-4 w-4 text-[#75838c] dark:text-[#94a3b8]" />
+          <Monitor className="h-4 w-4 text-slate-500 dark:text-slate-400" />
         );
     }
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#dce5e8] bg-white/90 dark:border-[#334155] dark:bg-[#162026]/90 backdrop-blur-md px-4 py-2.5 transition-colors">
+    <header className="sticky top-0 z-50 w-full px-4 py-3 bg-white/95 dark:bg-[#162026]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 transition-colors">
       <div className="mx-auto flex max-w-2xl items-center justify-between">
-        {/* Left: Monogram Block + Title + Location Subtitle */}
-        <div className="flex items-center gap-3">
-          {/* YBiL Monogram Box */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#17232c] text-white shadow-sm ring-1 ring-black/10 dark:bg-slate-800 dark:ring-white/10">
-            <span className="font-display text-sm font-black tracking-wider text-cyan-400">
-              Y<span className="text-white">B</span>
+        {/* Left Section: Identity & Status */}
+        <div className="inline-flex items-center gap-2.5 min-w-0">
+          {/* App Avatar with Mobile Status Badge */}
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-800 flex items-center justify-center text-white text-xs font-black shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+              <span className="text-[#2563eb] dark:text-cyan-400">Y</span>B
+            </div>
+            {/* Mobile Status Dot on Avatar Corner */}
+            <span
+              className="sm:hidden absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
+              title={isOnline ? "Live Sync Online" : "Offline"}
+            >
+              {isOnline && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-[#162026] ${
+                  isOnline ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
             </span>
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-base font-extrabold tracking-tight text-[#17232c] dark:text-white leading-none">
+          {/* Title Stack */}
+          <div className="min-w-0">
+            {/* Top line: YBiL Colombo */}
+            <div className="flex items-center gap-1.5 truncate">
+              <h1 className="text-sm font-bold text-slate-900 dark:text-white leading-tight truncate">
                 YBiL{" "}
-                <span className="font-sans font-medium text-xs text-blue-600 dark:text-cyan-400">
+                <span className="text-[#2563eb] dark:text-cyan-400 font-semibold">
                   Colombo
                 </span>
               </h1>
 
-              {/* Online / Offline Pill */}
+              {/* Status Pill on larger screens */}
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                className={`hidden sm:inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                   isOnline
                     ? "bg-[#e9f8f3] text-[#25856f] border border-[#25856f]/20 dark:bg-[#25856f]/20 dark:text-[#37be96] dark:border-[#37be96]/30"
                     : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800"
                 }`}
               >
-                <span className="relative flex h-1.5 w-1.5">
-                  {isOnline && (
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#37be96] opacity-75"></span>
-                  )}
-                  <span
-                    className={`relative inline-flex h-1.5 w-1.5 rounded-full ${
-                      isOnline ? "bg-[#37be96]" : "bg-amber-500"
-                    }`}
-                  ></span>
-                </span>
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isOnline ? "bg-[#37be96] animate-pulse" : "bg-amber-500"
+                  }`}
+                />
                 {isOnline ? "Live Sync" : "Offline"}
               </span>
             </div>
 
-            <p className="mt-0.5 text-[11px] font-medium text-[#75838c] dark:text-[#94a3b8] leading-tight">
-              Central Bus Stand Departures
+            {/* Bottom line: Combined location and micro status */}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 truncate leading-tight mt-0.5">
+              <span>Central Bus Stand</span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="sm:hidden flex items-center gap-1">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    isOnline ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                  {isOnline ? "Live" : "Offline"}
+                </span>
+              </span>
+              <span className="hidden sm:inline">Departures</span>
             </p>
           </div>
         </div>
 
-        {/* Right: Controls & Auth Trigger */}
-        <div className="flex items-center gap-1.5">
-          {/* Theme Mode Toggle Button */}
+        {/* Right Section: Mobile Action Bar */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Theme Toggle Button */}
           <button
             onClick={cycleTheme}
             type="button"
-            title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)} (Click to switch)`}
+            title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
             aria-label="Switch theme mode"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#dce5e8] bg-white text-[#17232c] transition hover:bg-slate-100 dark:border-[#334155] dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 active:scale-95 transition-transform relative before:absolute before:-inset-1 before:content-['']"
           >
             {renderThemeIcon()}
           </button>
 
-          {/* Sync Trigger Button */}
+          {/* Sync Button */}
           <button
             onClick={onSync}
-            disabled={isSyncing || !isOnline}
+            disabled={isSyncing}
             type="button"
-            title="Sync Timetable"
+            title={
+              isSyncing
+                ? "Syncing..."
+                : isOnline
+                  ? "Sync Timetable"
+                  : "Attempt Reconnect & Sync"
+            }
             aria-label="Sync Timetable"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#dce5e8] bg-white text-[#17232c] transition hover:bg-slate-100 disabled:opacity-40 dark:border-[#334155] dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 active:scale-95 transition-transform disabled:opacity-40 relative before:absolute before:-inset-1 before:content-['']"
           >
             <RefreshCw
               className={`h-4 w-4 ${isSyncing ? "animate-spin text-blue-600 dark:text-cyan-400" : ""}`}
             />
           </button>
 
-          {/* Auth Button */}
-          {isAuthenticated && user ? (
-            <div className="flex items-center gap-1.5 rounded-xl border border-[#dce5e8] bg-white px-2.5 py-1.5 shadow-sm dark:border-[#334155] dark:bg-slate-900">
-              <User className="h-3.5 w-3.5 text-blue-600 dark:text-cyan-400" />
-              <span className="text-xs font-semibold text-[#17232c] dark:text-slate-200 max-w-[70px] truncate">
-                {user.username}
-              </span>
-              <button
-                onClick={logout}
-                type="button"
-                title="Sign Out"
-                aria-label="Sign Out"
-                className="ml-0.5 text-[#75838c] hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onOpenAuth}
-              type="button"
-              className="rounded-xl bg-[#17232c] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm dark:bg-blue-600 dark:hover:bg-blue-500 font-display tracking-wide"
-            >
-              Sign In
-            </button>
-          )}
+          {/* Profile / Account Icon Button */}
+          <button
+            onClick={onOpenAccount}
+            type="button"
+            title={
+              isAuthenticated && user
+                ? `Account: ${user.username} (${user.role})`
+                : "My Account"
+            }
+            aria-label="My Account"
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center active:scale-95 transition-transform relative before:absolute before:-inset-1 before:content-[''] ${
+              isAuthenticated
+                ? "border-blue-300 bg-blue-50/70 text-blue-600 dark:border-blue-800 dark:bg-blue-950/50 dark:text-cyan-400"
+                : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            <User className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </header>
