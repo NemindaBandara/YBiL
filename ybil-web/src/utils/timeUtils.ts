@@ -25,6 +25,25 @@ export function format12HourTime(timeStr: string): string {
 }
 
 /**
+ * Parses a 24-hour time string ("HH:mm") into a Date object for today.
+ */
+export function parseTimeToToday(
+  timeStr: string,
+  referenceDate: Date = new Date()
+): Date | null {
+  if (!timeStr || !timeStr.includes(':')) {
+    return null;
+  }
+  const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) {
+    return null;
+  }
+  const d = new Date(referenceDate);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+/**
  * Calculates live departure status and countdown relative to current time:
  * - Departure > 60 min away: formatted departure time (e.g. "04:30 PM")
  * - Departure within 60 min: dynamic countdown (e.g. "in 18m" or "in 4m")
