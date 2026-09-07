@@ -7,10 +7,12 @@ import { timetableRepository } from "./db/timetableRepository";
 import type { TimetableEntry, MarkedTrip, BusCategory } from "./types/transit";
 import { getDepartureStatus } from "./utils/timeUtils";
 import { Header } from "./components/Header";
+import { HeroBanner } from "./components/HeroBanner";
 import { BusCard } from "./components/BusCard";
 import { ActiveTripShelf } from "./components/ActiveTripShelf";
 import { AuthModal } from "./components/AuthModal";
-import { Search, Filter, Eye, EyeOff } from "lucide-react";
+import { BottomNav, type NavTab } from "./components/BottomNav";
+import { Search, Eye, EyeOff } from "lucide-react";
 
 export default function App() {
   const now = useLiveClock(15000);
@@ -28,6 +30,7 @@ export default function App() {
   );
   const [showDeparted, setShowDeparted] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<NavTab>("departures");
 
   const loadCachedTimetable = async () => {
     const list = await timetableRepository.getAllEntries();
@@ -109,6 +112,33 @@ export default function App() {
     return activeTrip.timetableEntry?.id ?? null;
   }, [activeTrip]);
 
+  // Compute live hero statistics
+  const totalBusesToday = buses.length;
+
+  const totalActiveRoutes = useMemo(() => {
+    const routeSet = new Set(buses.map((b) => b.routeNumber || b.routeId));
+    return routeSet.size;
+  }, [buses]);
+
+  const nextUpcomingDeparture = useMemo(() => {
+    const upcoming = buses
+      .filter((b) => {
+        const st = getDepartureStatus(b.scheduledLeavingTime, now);
+        return !st.hasDeparted;
+      })
+      .sort((a, b) =>
+        a.scheduledLeavingTime.localeCompare(b.scheduledLeavingTime),
+      );
+
+    if (upcoming.length === 0) return null;
+    const earliest = upcoming[0];
+    const st = getDepartureStatus(earliest.scheduledLeavingTime, now);
+    return {
+      time: earliest.scheduledLeavingTime,
+      countdown: st.label,
+    };
+  }, [buses, now]);
+
   const filteredBuses = useMemo(() => {
     return buses.filter((bus) => {
       const status = getDepartureStatus(bus.scheduledLeavingTime, now);
@@ -140,8 +170,31 @@ export default function App() {
     now,
   ]);
 
+  const handleTabChange = (tab: NavTab) => {
+    setActiveTab(tab);
+    if (tab === "departures") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (tab === "saved") {
+      const shelfElement = document.getElementById("active-trip-shelf");
+      if (shelfElement) {
+        shelfElement.scrollIntoView({ behavior: "smooth" });
+      } else if (!isAuthenticated) {
+        setIsAuthModalOpen(true);
+      }
+    } else if (tab === "routes") {
+      const filterElement = document.getElementById("search-toolbar");
+      if (filterElement) {
+        filterElement.scrollIntoView({ behavior: "smooth" });
+      }
+    } else if (tab === "profile") {
+      if (!isAuthenticated) {
+        setIsAuthModalOpen(true);
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-[#f4f7f7] text-[#17232c] dark:bg-[#0f172a] dark:text-[#f8fafc] flex flex-col transition-colors">
       <Header
         isOnline={isOnline}
         isSyncing={isSyncing}
@@ -149,7 +202,17 @@ export default function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
       />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 pb-28">
+        {/* Live Hero Showcase */}
+        <HeroBanner
+          totalBusesToday={totalBusesToday}
+          nextDepartureCountdown={nextUpcomingDeparture?.countdown ?? null}
+          nextDepartureTime={nextUpcomingDeparture?.time ?? null}
+          totalActiveRoutes={totalActiveRoutes}
+          selectedOperator={selectedOperator}
+        />
+
+        {/* Active Marked Trip Shelf */}
         {activeTrip && (
           <ActiveTripShelf
             activeTrip={activeTrip}
@@ -160,88 +223,117 @@ export default function App() {
         )}
 
         {/* Search & Filter Toolbar */}
-        <div className="mb-4 space-y-2.5">
+        <div id="search-toolbar" className="mb-4 space-y-3">
+          {/* Pill Search Bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#75838c] dark:text-[#94a3b8]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search destination (e.g., Kandy, Galle, 100)..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+              placeholder="Search destination, route (e.g., Kandy, Galle, 138)..."
+              className="w-full rounded-2xl border border-[#dce5e8] bg-white py-2.5 pl-10 pr-4 text-sm text-[#17232c] placeholder-[#75838c] shadow-xs focus:border-blue-600 focus:outline-none dark:border-[#334155] dark:bg-[#162026] dark:text-white dark:placeholder-[#94a3b8] dark:focus:border-cyan-400 transition-all"
             />
           </div>
 
-          {/* Operator Filter Row + Departed Toggle */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs">
-              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 mr-0.5" />
-              {(["ALL", "SLTB", "PRIVATE"] as const).map((type) => (
+          {/* Operator Chips Row */}
+          <div className="flex items-center gap-2">
+            {(
+              [
+                { key: "ALL", label: "All Operators" },
+                { key: "SLTB", label: "SLTB" },
+                { key: "PRIVATE", label: "PRIVATE" },
+              ] as const
+            ).map((item) => {
+              const isSelected = selectedOperator === item.key;
+              const isSltb = item.key === "SLTB";
+              const isPrivate = item.key === "PRIVATE";
+
+              let activeClasses =
+                "bg-[#17232c] text-white shadow-xs dark:bg-slate-700 dark:text-white";
+              if (isSltb) {
+                activeClasses = "bg-[#e94b50] text-white shadow-xs font-bold";
+              } else if (isPrivate) {
+                activeClasses =
+                  "bg-[#ead57b] text-[#17232c] shadow-xs font-bold";
+              }
+
+              return (
                 <button
-                  key={type}
-                  onClick={() => setSelectedOperator(type)}
-                  className={`rounded-lg px-2.5 py-1 font-medium transition ${
-                    selectedOperator === type
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-800"
+                  key={item.key}
+                  type="button"
+                  onClick={() => setSelectedOperator(item.key)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                    isSelected
+                      ? activeClasses
+                      : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
                   }`}
                 >
-                  {type === "ALL" ? "All Operators" : type}
+                  {item.label}
                 </button>
-              ))}
-            </div>
-
-            {/* Departed Toggle */}
-            <button
-              onClick={() => setShowDeparted(!showDeparted)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium border transition ${
-                showDeparted
-                  ? "border-slate-300 bg-slate-200 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                  : "border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
-              }`}
-            >
-              {showDeparted ? (
-                <Eye className="h-3 w-3" />
-              ) : (
-                <EyeOff className="h-3 w-3" />
-              )}
-              <span>Departed</span>
-            </button>
+              );
+            })}
           </div>
 
-          {/* Bus Service Category Filter Row */}
+          {/* Bus Service Classification Chips (Horizontal Scrollable) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
             {(
               [
                 { key: "ALL", label: "All Types" },
                 { key: "NORMAL", label: "Normal" },
-                { key: "SEMI", label: "Semi" },
-                { key: "LUXURY_AC", label: "A/C" },
+                { key: "SEMI", label: "Semi-Exp" },
+                { key: "LUXURY_AC", label: "A/C Luxury" },
                 { key: "EXPRESSWAY", label: "Expressway" },
               ] as const
             ).map((cat) => (
               <button
                 key={cat.key}
+                type="button"
                 onClick={() => setSelectedCategory(cat.key)}
-                className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                className={`whitespace-nowrap rounded-xl px-3 py-1 text-xs font-semibold transition-all duration-150 ${
                   selectedCategory === cat.key
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "bg-white text-slate-600 border border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-800"
+                    ? "bg-[#17232c] text-white dark:bg-cyan-500 dark:text-slate-950 shadow-xs"
+                    : "bg-white text-[#75838c] border border-[#dce5e8] hover:text-[#17232c] dark:bg-[#162026] dark:text-[#94a3b8] dark:border-[#334155] dark:hover:text-white shadow-xs"
                 }`}
               >
                 {cat.label}
               </button>
             ))}
           </div>
+
+          {/* Departures Sub-header: Services Count & Departed Visibility Toggle */}
+          <div className="flex items-center justify-between pt-1 text-xs">
+            <span className="font-bold text-[#17232c] dark:text-white font-display">
+              {filteredBuses.length}{" "}
+              {filteredBuses.length === 1 ? "service" : "services"} found
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setShowDeparted(!showDeparted)}
+              className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-all ${
+                showDeparted
+                  ? "border-[#17232c] bg-[#17232c] text-white dark:border-cyan-400 dark:bg-cyan-500 dark:text-slate-950"
+                  : "border-[#dce5e8] bg-white text-[#75838c] hover:text-[#17232c] dark:border-[#334155] dark:bg-[#162026] dark:text-[#94a3b8] dark:hover:text-white"
+              }`}
+            >
+              {showDeparted ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )}
+              <span>Departed</span>
+            </button>
+          </div>
         </div>
 
         {/* Timetable List */}
         {filteredBuses.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center bg-white/40 dark:bg-slate-900/40">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="rounded-2xl border border-dashed border-[#dce5e8] dark:border-[#334155] p-8 text-center bg-white/40 dark:bg-[#162026]/40">
+            <p className="text-sm font-semibold text-[#17232c] dark:text-slate-200">
               No active departures to show.
             </p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            <p className="mt-1 text-xs text-[#75838c] dark:text-[#94a3b8]">
               {showDeparted
                 ? "Try adjusting your search criteria or type filters."
                 : 'Past buses are hidden. Turn on "Departed" to view them.'}
@@ -261,6 +353,15 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Sticky Frosted Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        hasActiveTrip={!!activeTrip}
+        isAuthenticated={isAuthenticated}
+        username={user?.username}
+      />
 
       <AuthModal
         isOpen={isAuthModalOpen}

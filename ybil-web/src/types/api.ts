@@ -1,4 +1,4 @@
-import type { Route, OperatorType, BusCategory } from './transit';
+import type { OperatorType, BusCategory } from './transit';
 
 export interface RouteResponse {
   id: string;
