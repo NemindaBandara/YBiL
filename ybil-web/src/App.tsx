@@ -13,8 +13,10 @@ import { ActiveTripShelf } from "./components/ActiveTripShelf";
 import { AuthModal } from "./components/AuthModal";
 import { BottomNav, type NavTab } from "./components/BottomNav";
 import { AccountPage } from "./components/AccountPage";
+import { AdminRouteGuard } from "./components/admin/AdminRouteGuard";
+import { AdminDashboardPage } from "./components/admin/AdminDashboardPage";
 import { useTripAlerts } from "./hooks/useTripAlerts";
-import { Search, Eye, EyeOff } from "lucide-react";
+import { Search, Eye, EyeOff, AlertCircle, X } from "lucide-react";
 
 export default function App() {
   const now = useLiveClock(15000);
@@ -33,7 +35,10 @@ export default function App() {
   );
   const [showDeparted, setShowDeparted] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<NavTab>("departures");
+  const [activeTab, setActiveTab] = useState<NavTab | "admin">("departures");
+  const [accessDeniedToast, setAccessDeniedToast] = useState<string | null>(
+    null,
+  );
 
   const loadCachedTimetable = useCallback(async () => {
     const list = await timetableRepository.getAllEntries();
@@ -186,34 +191,60 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  const navigateToAdmin = useCallback(() => {
+    if (window.location.pathname !== "/admin") {
+      window.history.pushState(null, "", "/admin");
+    }
+    setActiveTab("admin");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   const navigateToDepartures = useCallback(() => {
-    if (window.location.pathname === "/account") {
+    if (
+      window.location.pathname === "/account" ||
+      window.location.pathname === "/admin"
+    ) {
       window.history.pushState(null, "", "/");
     }
     setActiveTab("departures");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const handleBackFromAccount = useCallback(() => {
-    if (window.history.length > 1 && window.location.pathname === "/account") {
+  const handleBackFromView = useCallback(() => {
+    if (
+      window.history.length > 1 &&
+      (window.location.pathname === "/account" ||
+        window.location.pathname === "/admin")
+    ) {
       window.history.back();
     } else {
       navigateToDepartures();
     }
   }, [navigateToDepartures]);
 
-  useEffect(() => {
-    if (window.location.pathname === "/account") {
-      setActiveTab("account");
-    }
+  const handleAdminUnauthorized = useCallback(
+    (msg: string) => {
+      setAccessDeniedToast(msg);
+      navigateToDepartures();
+      setTimeout(() => {
+        setAccessDeniedToast(null);
+      }, 4000);
+    },
+    [navigateToDepartures],
+  );
 
+  useEffect(() => {
     const handlePopState = () => {
-      if (window.location.pathname === "/account") {
+      if (window.location.pathname === "/admin") {
+        setActiveTab("admin");
+      } else if (window.location.pathname === "/account") {
         setActiveTab("account");
       } else {
         setActiveTab("departures");
       }
     };
+
+    handlePopState();
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -225,8 +256,15 @@ export default function App() {
       return;
     }
 
-    if (activeTab === "account" || activeTab === "profile") {
-      if (window.location.pathname === "/account") {
+    if (
+      activeTab === "account" ||
+      activeTab === "profile" ||
+      activeTab === "admin"
+    ) {
+      if (
+        window.location.pathname === "/account" ||
+        window.location.pathname === "/admin"
+      ) {
         window.history.pushState(null, "", "/");
       }
     }
@@ -251,6 +289,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f4f7f7] text-[#17232c] dark:bg-[#0f172a] dark:text-[#f8fafc] flex flex-col transition-colors overscroll-none touch-pan-y">
+      {/* Access Denied Toast */}
+      {accessDeniedToast && (
+        <div
+          role="alert"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold bg-rose-600 text-white border border-rose-500 max-w-md w-[calc(100%-2rem)] animate-in slide-in-from-top-2 duration-200"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{accessDeniedToast}</span>
+          <button
+            type="button"
+            onClick={() => setAccessDeniedToast(null)}
+            className="p-1 hover:opacity-80"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       <Header
         isOnline={isOnline}
         isSyncing={isSyncing}
@@ -258,13 +314,27 @@ export default function App() {
         onOpenAccount={navigateToAccount}
       />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
-        {activeTab === "account" || activeTab === "profile" ? (
+      <main
+        className={`mx-auto w-full ${
+          activeTab === "admin" ? "max-w-4xl" : "max-w-2xl"
+        } flex-1 px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]`}
+      >
+        {activeTab === "admin" ? (
+          <AdminRouteGuard onUnauthorized={handleAdminUnauthorized}>
+            <AdminDashboardPage
+              onBack={handleBackFromView}
+              isOnline={isOnline}
+              lastSyncTime={lastSyncTime}
+              onForceSync={handleSync}
+            />
+          </AdminRouteGuard>
+        ) : activeTab === "account" || activeTab === "profile" ? (
           <AccountPage
-            onBack={handleBackFromAccount}
+            onBack={handleBackFromView}
             onOpenAuth={() => setIsAuthModalOpen(true)}
             isOnline={isOnline}
             lastSyncTime={lastSyncTime}
+            onNavigateAdmin={navigateToAdmin}
           />
         ) : (
           <>
@@ -426,7 +496,7 @@ export default function App() {
 
       {/* Sticky Frosted Bottom Navigation */}
       <BottomNav
-        activeTab={activeTab}
+        activeTab={activeTab === "admin" ? "account" : activeTab}
         onTabChange={handleTabChange}
         hasActiveTrip={!!activeTrip}
         isAuthenticated={isAuthenticated}

@@ -34,6 +34,21 @@ export const timetableRepository = {
     await db.routes.bulkPut(routes);
   },
 
+  // Save or update a single entry
+  async upsertEntry(entry: TimetableEntry): Promise<void> {
+    await db.timetable.put(entry);
+  },
+
+  // Delete a single entry
+  async deleteEntry(id: string): Promise<void> {
+    await db.timetable.delete(id);
+  },
+
+  // Get all cached routes
+  async getAllRoutes(): Promise<Route[]> {
+    return db.routes.toArray();
+  },
+
   // Sync timestamp tracking
   async getLastSyncTime(): Promise<number> {
     const record = await db.syncMeta.get('last_synced_at');

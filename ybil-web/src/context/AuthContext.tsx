@@ -1,5 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { apiClient } from "../api/client";
 
 export interface AuthUser {
   id: string;
@@ -27,6 +34,8 @@ interface AuthContextType {
     user?: AuthUser;
   }) => void;
   logout: () => void;
+  updateUser: (user: AuthUser) => void;
+  refreshUser: () => Promise<AuthUser | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  // Decode JWT payload safely without extra dependencies
+  // Decode JWT payload safely and inspect all standard Spring Security / OAuth claims
   const parseUserFromJwt = (token: string): AuthUser | null => {
     try {
       const base64Url = token.split(".")[1];
@@ -50,15 +59,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       const payload = JSON.parse(jsonPayload);
 
+      let detectedRole: "PASSENGER" | "ADMIN" = "PASSENGER";
+
+      const checkIsAdminString = (val: unknown): boolean => {
+        if (typeof val === "string") {
+          const u = val.toUpperCase();
+          return u === "ADMIN" || u === "ROLE_ADMIN";
+        }
+        if (typeof val === "object" && val !== null && "authority" in val) {
+          return checkIsAdminString((val as { authority: unknown }).authority);
+        }
+        return false;
+      };
+
+      const raw =
+        payload.role ??
+        payload.roles ??
+        payload.authorities ??
+        payload.scope ??
+        payload.auth;
+
+      if (Array.isArray(raw)) {
+        if (raw.some(checkIsAdminString)) {
+          detectedRole = "ADMIN";
+        }
+      } else if (checkIsAdminString(raw)) {
+        detectedRole = "ADMIN";
+      }
+
       return {
-        id: payload.userId || payload.sub || "",
+        id: payload.userId || payload.id || payload.sub || "",
         username: payload.username || payload.sub || "Passenger",
-        role: payload.role?.replace("ROLE_", "") || "PASSENGER",
+        role: detectedRole,
       };
     } catch {
       return null;
     }
   };
+
+  const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const profile = await apiClient<AuthUser>("/api/auth/me");
+      if (profile && profile.username) {
+        const normalized: AuthUser = {
+          id: profile.id,
+          username: profile.username,
+          role:
+            (profile.role as string) === "ROLE_ADMIN" ||
+            profile.role === "ADMIN"
+              ? "ADMIN"
+              : "PASSENGER",
+        };
+        localStorage.setItem("user_data", JSON.stringify(normalized));
+        setUser(normalized);
+        return normalized;
+      }
+    } catch {
+      // Endpoint error or network offline
+    }
+    return null;
+  }, []);
+
+  const updateUser = useCallback((updated: AuthUser) => {
+    const normalized: AuthUser = {
+      ...updated,
+      role:
+        (updated.role as string) === "ROLE_ADMIN" || updated.role === "ADMIN"
+          ? "ADMIN"
+          : "PASSENGER",
+    };
+    localStorage.setItem("user_data", JSON.stringify(normalized));
+    setUser(normalized);
+  }, []);
 
   // Synchronize authentication tokens and update React state immediately
   const persistSession = (data: {
@@ -73,9 +145,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const resolvedUser = data.user || parseUserFromJwt(data.accessToken);
     if (resolvedUser) {
-      localStorage.setItem("user_data", JSON.stringify(resolvedUser));
-      setUser(resolvedUser);
+      const normalized: AuthUser = {
+        ...resolvedUser,
+        role:
+          (resolvedUser.role as string) === "ROLE_ADMIN" ||
+          resolvedUser.role === "ADMIN"
+            ? "ADMIN"
+            : "PASSENGER",
+      };
+      localStorage.setItem("user_data", JSON.stringify(normalized));
+      setUser(normalized);
     }
+
+    // Always fetch latest authoritative profile from /api/auth/me
+    refreshUser();
   };
 
   // Restore session on initial mount / reload
@@ -87,17 +170,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));
-          return;
         } catch {
           // Fallback to token parsing if JSON is corrupt
         }
+      } else {
+        const extracted = parseUserFromJwt(token);
+        if (extracted) {
+          setUser(extracted);
+        }
       }
-      const extracted = parseUserFromJwt(token);
-      if (extracted) {
-        setUser(extracted);
-      }
+
+      // Re-verify and sync with /api/auth/me
+      refreshUser();
     }
-  }, []);
+  }, [refreshUser]);
 
   const login = (payload: {
     accessToken: string;
@@ -112,7 +198,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     refreshToken?: string;
     user?: AuthUser;
   }) => {
-    // Automatically authenticate the session upon successful registration
     persistSession(payload);
   };
 
@@ -131,6 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         register,
         logout,
+        updateUser,
+        refreshUser,
       }}
     >
       {children}

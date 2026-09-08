@@ -96,11 +96,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         const authPayload = {
           accessToken: token,
           refreshToken: response.refreshToken,
-          user: response.user || {
-            id: "",
-            username: cleanUsername,
-            role: "PASSENGER" as const,
-          },
+          user: response.user,
         };
 
         login(authPayload);

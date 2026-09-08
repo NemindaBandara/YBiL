@@ -21,6 +21,7 @@ interface AccountPageProps {
   onOpenAuth: () => void;
   isOnline: boolean;
   lastSyncTime: number;
+  onNavigateAdmin?: () => void;
 }
 
 export const AccountPage: React.FC<AccountPageProps> = ({
@@ -28,8 +29,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   onOpenAuth,
   isOnline,
   lastSyncTime,
+  onNavigateAdmin,
 }) => {
-  const { user: authUser, isAuthenticated, logout } = useAuth();
+  const { user: authUser, isAuthenticated, logout, updateUser } = useAuth();
   const { isInstallable, isInstalled, installApp } = usePWAInstall();
   const [userData, setUserData] = useState<AuthUser | null>(authUser);
   const [copied, setCopied] = useState(false);
@@ -41,6 +43,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
         .then((data) => {
           if (data && data.username) {
             setUserData(data);
+            updateUser(data);
           }
         })
         .catch(() => {
@@ -50,7 +53,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
     } else {
       setUserData(null);
     }
-  }, [isAuthenticated, authUser]);
+  }, [isAuthenticated, authUser, updateUser]);
 
   const handleCopyId = (id: string) => {
     if (navigator.clipboard) {
@@ -200,6 +203,31 @@ export const AccountPage: React.FC<AccountPageProps> = ({
           </span>
         </div>
       )}
+
+      {/* Admin Management Portal Tile */}
+      {((role as string) === "ADMIN" || (role as string) === "ROLE_ADMIN") &&
+        onNavigateAdmin && (
+          <div className="bg-gradient-to-r from-purple-900 via-slate-900 to-indigo-950 dark:from-purple-950 dark:via-[#162026] dark:to-indigo-950 rounded-2xl p-4 text-white shadow-sm border border-purple-500/30 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-purple-400 shrink-0" />
+                <h3 className="text-sm font-bold leading-tight">
+                  Admin Management Portal
+                </h3>
+              </div>
+              <p className="text-xs text-purple-200/80 dark:text-slate-300 mt-1 leading-snug">
+                Manage timetable schedules, bulk imports, and syncs
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onNavigateAdmin}
+              className="shrink-0 inline-flex items-center gap-1.5 bg-purple-500 hover:bg-purple-600 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all"
+            >
+              <span>Open Portal</span>
+            </button>
+          </div>
+        )}
 
       {/* C. Details & Settings Section */}
       <div className="bg-white dark:bg-[#162026] rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-xs transition-colors">
