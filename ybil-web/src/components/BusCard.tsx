@@ -32,7 +32,7 @@ const CATEGORY_CONFIG: Record<
       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700/60",
   },
   SEMI: {
-    label: "Semi-Exp",
+    label: "Semi-Lux",
     className:
       "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800/60",
     icon: <Zap className="h-2.5 w-2.5" />,
