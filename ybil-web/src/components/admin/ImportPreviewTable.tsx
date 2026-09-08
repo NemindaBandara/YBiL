@@ -144,7 +144,7 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
               <tr>
                 <th className="px-3 py-2.5 w-12 text-center">#</th>
                 <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5">Route ID</th>
+                <th className="px-3 py-2.5">Route #</th>
                 <th className="px-3 py-2.5">Bus No</th>
                 <th className="px-3 py-2.5">Operator</th>
                 <th className="px-3 py-2.5">Category</th>
@@ -194,17 +194,20 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
                     )}
                   </td>
 
-                  {/* Route ID Cell */}
-                  <td className="px-3 py-2 font-mono text-[11px] max-w-[120px] truncate">
+                  {/* Route Number Cell */}
+                  <td className="px-3 py-2 font-mono text-xs font-bold whitespace-nowrap">
                     <span
                       className={
-                        row.errors.routeId
+                        row.errors.routeNumber
                           ? "text-rose-600 dark:text-rose-400 underline decoration-dotted"
-                          : "text-slate-700 dark:text-slate-300"
+                          : "text-blue-600 dark:text-cyan-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-md"
                       }
-                      title={row.errors.routeId || row.routeId}
+                      title={
+                        row.errors.routeNumber ||
+                        (row.routeId ? `UUID: ${row.routeId}` : undefined)
+                      }
                     >
-                      {row.routeId || "—"}
+                      {row.routeNumber || "—"}
                     </span>
                   </td>
 

@@ -1,5 +1,6 @@
 import { db } from './database';
 import type { TimetableEntry, Route } from '../types/transit';
+import { apiClient } from '../api/client';
 
 export const timetableRepository = {
   // Get all cached entries sorted by leaving time
@@ -34,6 +35,11 @@ export const timetableRepository = {
     await db.routes.bulkPut(routes);
   },
 
+  // Save or update a single route
+  async upsertRoute(route: Route): Promise<void> {
+    await db.routes.put(route);
+  },
+
   // Save or update a single entry
   async upsertEntry(entry: TimetableEntry): Promise<void> {
     await db.timetable.put(entry);
@@ -46,6 +52,28 @@ export const timetableRepository = {
 
   // Get all cached routes
   async getAllRoutes(): Promise<Route[]> {
+    return db.routes.toArray();
+  },
+
+  // Fetch routes from server and update local cache
+  async syncRoutesFromServer(): Promise<Route[]> {
+    try {
+      const routes = await apiClient<Route[]>('/api/admin/routes');
+      if (Array.isArray(routes) && routes.length > 0) {
+        await db.routes.bulkPut(routes);
+        return routes;
+      }
+    } catch {
+      try {
+        const publicRoutes = await apiClient<Route[]>('/api/public/routes');
+        if (Array.isArray(publicRoutes) && publicRoutes.length > 0) {
+          await db.routes.bulkPut(publicRoutes);
+          return publicRoutes;
+        }
+      } catch {
+        // Network offline, return cached
+      }
+    }
     return db.routes.toArray();
   },
 

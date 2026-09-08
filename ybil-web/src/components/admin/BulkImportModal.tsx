@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   FileSpreadsheet,
@@ -17,6 +17,8 @@ import {
   type ValidatedScheduleRow,
 } from "../../utils/spreadsheetParser";
 import { ImportPreviewTable } from "./ImportPreviewTable";
+import { timetableRepository } from "../../db/timetableRepository";
+import type { Route } from "../../types/transit";
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   onSuccess,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>("spreadsheet");
+  const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
   const [parsedRows, setParsedRows] = useState<ValidatedScheduleRow[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -42,6 +45,15 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   const [jsonFormatError, setJsonFormatError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      timetableRepository.getAllRoutes().then((r) => setAvailableRoutes(r));
+      timetableRepository
+        .syncRoutesFromServer()
+        .then((r) => setAvailableRoutes(r));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -68,12 +80,12 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       let results: ValidatedScheduleRow[] = [];
 
       if (fileNameLower.endsWith(".csv")) {
-        results = await parseCSV(file);
+        results = await parseCSV(file, availableRoutes);
       } else if (
         fileNameLower.endsWith(".xlsx") ||
         fileNameLower.endsWith(".xls")
       ) {
-        results = await parseExcel(file);
+        results = await parseExcel(file, availableRoutes);
       } else {
         throw new Error(
           "Unsupported file format. Please upload .csv, .xlsx, or .xls.",
@@ -110,12 +122,12 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       let results: ValidatedScheduleRow[] = [];
 
       if (fileNameLower.endsWith(".csv")) {
-        results = await parseCSV(file);
+        results = await parseCSV(file, availableRoutes);
       } else if (
         fileNameLower.endsWith(".xlsx") ||
         fileNameLower.endsWith(".xls")
       ) {
-        results = await parseExcel(file);
+        results = await parseExcel(file, availableRoutes);
       } else {
         throw new Error(
           "Unsupported file format. Please upload .csv, .xlsx, or .xls.",
@@ -154,7 +166,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     }
 
     try {
-      const rows = parseRawJSON(rawJsonText);
+      const rows = parseRawJSON(rawJsonText, availableRoutes);
       if (rows.length === 0) {
         setJsonFormatError("JSON array is empty.");
         return;
@@ -348,7 +360,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
                       setRawJsonText(e.target.value);
                       setJsonFormatError(null);
                     }}
-                    placeholder={`[\n  {\n    "routeId": "00000000-0000-0000-0000-000000000001",\n    "operatorType": "SLTB",\n    "busCategory": "NORMAL",\n    "busNumber": "NB-1234",\n    "scheduledParkingTime": "08:45",\n    "scheduledLeavingTime": "09:00"\n  }\n]`}
+                    placeholder={`[\n  {\n    "routeNumber": "138",\n    "operatorType": "SLTB",\n    "busCategory": "NORMAL",\n    "busNumber": "NB-1234",\n    "scheduledParkingTime": "08:45",\n    "scheduledLeavingTime": "09:00"\n  }\n]`}
                     className="w-full font-mono text-xs p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-cyan-400 resize-none"
                   />
 

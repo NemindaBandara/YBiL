@@ -1,8 +1,9 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import type { OperatorType, BusCategory } from '../types/transit';
+import type { OperatorType, BusCategory, Route } from '../types/transit';
 
 export interface RawScheduleRow {
+  routeNumber?: string;
   routeId?: string;
   operatorType?: string;
   busCategory?: string;
@@ -14,6 +15,7 @@ export interface RawScheduleRow {
 
 export interface ValidatedScheduleRow {
   index: number;
+  routeNumber: string;
   routeId: string;
   operatorType: OperatorType;
   busCategory: BusCategory;
@@ -83,19 +85,46 @@ export function normalizeTimeString(val: unknown): string {
 
 /**
  * Validates a normalized row against YBiL domain rules.
+ * Resolves routeNumber to its UUID routeId using availableRoutes.
  */
 export function validateScheduleRow(
   row: RawScheduleRow,
-  index: number
+  index: number,
+  availableRoutes: Route[] = []
 ): ValidatedScheduleRow {
   const errors: Record<string, string> = {};
 
-  // routeId check
-  const routeId = String(row.routeId || '').trim();
-  if (!routeId) {
-    errors.routeId = 'Route ID is required';
-  } else if (!UUID_REGEX.test(routeId) && !RELAXED_UUID_REGEX.test(routeId)) {
-    errors.routeId = 'Must be a valid UUID string (e.g. 123e4567-e89b-12d3-a456-426614174000)';
+  const rawRouteNumber = String(row.routeNumber || '').trim();
+  const rawRouteId = String(row.routeId || '').trim();
+
+  let resolvedRouteId = '';
+  let resolvedRouteNumber = rawRouteNumber;
+
+  if (rawRouteNumber) {
+    const matched = availableRoutes.find(
+      (r) => r.routeNumber.trim().toLowerCase() === rawRouteNumber.toLowerCase()
+    );
+    if (matched) {
+      resolvedRouteId = matched.id;
+      resolvedRouteNumber = matched.routeNumber;
+    } else {
+      errors.routeNumber = `Route "${rawRouteNumber}" not found. Create it under "Routes" tab first.`;
+    }
+  } else if (rawRouteId) {
+    // Fallback: If routeId was given, look up routeNumber or check UUID
+    if (UUID_REGEX.test(rawRouteId) || RELAXED_UUID_REGEX.test(rawRouteId)) {
+      resolvedRouteId = rawRouteId;
+      const matched = availableRoutes.find((r) => r.id === rawRouteId);
+      if (matched) {
+        resolvedRouteNumber = matched.routeNumber;
+      } else {
+        resolvedRouteNumber = 'ID: ' + rawRouteId.substring(0, 8);
+      }
+    } else {
+      errors.routeNumber = 'Valid routeNumber or UUID routeId is required';
+    }
+  } else {
+    errors.routeNumber = 'Route number is required (e.g. 138, 100, EX-01)';
   }
 
   // operatorType check
@@ -151,7 +180,8 @@ export function validateScheduleRow(
 
   return {
     index,
-    routeId,
+    routeNumber: resolvedRouteNumber,
+    routeId: resolvedRouteId,
     operatorType,
     busCategory,
     busNumber,
@@ -163,9 +193,12 @@ export function validateScheduleRow(
 }
 
 /**
- * Parses a CSV file using PapaParse.
+ * Parses a CSV file using PapaParse, validating routes against availableRoutes.
  */
-export async function parseCSV(file: File): Promise<ValidatedScheduleRow[]> {
+export async function parseCSV(
+  file: File,
+  availableRoutes: Route[] = []
+): Promise<ValidatedScheduleRow[]> {
   return new Promise((resolve, reject) => {
     Papa.parse<RawScheduleRow>(file, {
       header: true,
@@ -173,7 +206,7 @@ export async function parseCSV(file: File): Promise<ValidatedScheduleRow[]> {
       transformHeader: (header) => header.trim(),
       complete: (results) => {
         const rows = (results.data || []).map((row, idx) =>
-          validateScheduleRow(row, idx + 1)
+          validateScheduleRow(row, idx + 1, availableRoutes)
         );
         resolve(rows);
       },
@@ -183,9 +216,12 @@ export async function parseCSV(file: File): Promise<ValidatedScheduleRow[]> {
 }
 
 /**
- * Parses an Excel (.xlsx, .xls) file using SheetJS.
+ * Parses an Excel (.xlsx, .xls) file using SheetJS, validating routes against availableRoutes.
  */
-export async function parseExcel(file: File): Promise<ValidatedScheduleRow[]> {
+export async function parseExcel(
+  file: File,
+  availableRoutes: Route[] = []
+): Promise<ValidatedScheduleRow[]> {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -196,13 +232,18 @@ export async function parseExcel(file: File): Promise<ValidatedScheduleRow[]> {
     defval: '',
   });
 
-  return rawRows.map((row, idx) => validateScheduleRow(row, idx + 1));
+  return rawRows.map((row, idx) =>
+    validateScheduleRow(row, idx + 1, availableRoutes)
+  );
 }
 
 /**
- * Parses raw JSON string input into validated schedule rows.
+ * Parses raw JSON string input into validated schedule rows using availableRoutes.
  */
-export function parseRawJSON(jsonString: string): ValidatedScheduleRow[] {
+export function parseRawJSON(
+  jsonString: string,
+  availableRoutes: Route[] = []
+): ValidatedScheduleRow[] {
   const trimmed = jsonString.trim();
   if (!trimmed) return [];
 
@@ -212,16 +253,16 @@ export function parseRawJSON(jsonString: string): ValidatedScheduleRow[] {
   }
 
   return parsed.map((row: RawScheduleRow, idx: number) =>
-    validateScheduleRow(row, idx + 1)
+    validateScheduleRow(row, idx + 1, availableRoutes)
   );
 }
 
 /**
- * Generates and triggers the download of the standard YBiL schedule CSV template.
+ * Generates and triggers the download of the standard YBiL schedule CSV template with routeNumber.
  */
 export function downloadCSVTemplate(): void {
   const headers = [
-    'routeId',
+    'routeNumber',
     'operatorType',
     'busCategory',
     'busNumber',
@@ -230,27 +271,15 @@ export function downloadCSVTemplate(): void {
   ];
 
   const sampleRows = [
-    [
-      '00000000-0000-0000-0000-000000000001',
-      'SLTB',
-      'NORMAL',
-      'NB-1234',
-      '08:45',
-      '09:00',
-    ],
-    [
-      '00000000-0000-0000-0000-000000000002',
-      'PRIVATE',
-      'LUXURY_AC',
-      'WP-5678',
-      '09:15',
-      '09:30',
-    ],
+    ['138', 'SLTB', 'NORMAL', 'NB-1234', '08:45', '09:00'],
+    ['100', 'PRIVATE', 'LUXURY_AC', 'WP-5678', '09:15', '09:30'],
+    ['EX-01', 'SLTB', 'EXPRESSWAY', 'NC-9999', '10:00', '10:45'],
   ];
 
-  const csvContent = [headers.join(','), ...sampleRows.map((r) => r.join(','))].join(
-    '\n'
-  );
+  const csvContent = [
+    headers.join(','),
+    ...sampleRows.map((r) => r.join(',')),
+  ].join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -262,4 +291,3 @@ export function downloadCSVTemplate(): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-

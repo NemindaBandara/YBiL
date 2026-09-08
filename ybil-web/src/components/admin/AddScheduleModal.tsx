@@ -14,6 +14,7 @@ import { apiClient } from "../../api/client";
 
 interface AddScheduleModalProps {
   isOpen: boolean;
+  initialRouteId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -23,11 +24,14 @@ const UUID_REGEX =
 
 export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   isOpen,
+  initialRouteId,
   onClose,
   onSuccess,
 }) => {
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [selectedRouteId, setSelectedRouteId] = useState<string>("");
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(
+    initialRouteId || "",
+  );
   const [isCustomRoute, setIsCustomRoute] = useState(false);
   const [customRouteId, setCustomRouteId] = useState("");
   const [operatorType, setOperatorType] = useState<OperatorType>("SLTB");
@@ -42,13 +46,15 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     if (isOpen) {
       timetableRepository.getAllRoutes().then((cachedRoutes) => {
         setRoutes(cachedRoutes);
-        if (cachedRoutes.length > 0 && !selectedRouteId) {
+        if (initialRouteId) {
+          setSelectedRouteId(initialRouteId);
+        } else if (cachedRoutes.length > 0 && !selectedRouteId) {
           setSelectedRouteId(cachedRoutes[0].id);
         }
       });
       setErrorMessage(null);
     }
-  }, [isOpen, selectedRouteId]);
+  }, [isOpen, initialRouteId, selectedRouteId]);
 
   if (!isOpen) return null;
 

@@ -13,12 +13,14 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import type { TimetableEntry } from "../../types/transit";
+import type { TimetableEntry, Route } from "../../types/transit";
 import { timetableRepository } from "../../db/timetableRepository";
 import { syncService } from "../../sync/syncService";
 import { apiClient } from "../../api/client";
 import { TimetableGrid } from "./TimetableGrid";
+import { RoutesGrid } from "./RoutesGrid";
 import { AddScheduleModal } from "./AddScheduleModal";
+import { AddRouteModal } from "./AddRouteModal";
 import { QuickEditModal } from "./QuickEditModal";
 import { BulkImportModal } from "./BulkImportModal";
 
@@ -29,6 +31,8 @@ interface AdminDashboardPageProps {
   onForceSync: () => Promise<void>;
 }
 
+type AdminSection = "schedules" | "routes";
+
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onBack,
   isOnline,
@@ -36,17 +40,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onForceSync,
 }) => {
   const [buses, setBuses] = useState<TimetableEntry[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isResettingCache, setIsResettingCache] = useState(false);
+  const [activeSection, setActiveSection] = useState<AdminSection>("schedules");
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddRouteOpen, setIsAddRouteOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
   const [deletingEntry, setDeletingEntry] = useState<TimetableEntry | null>(
     null,
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedRouteForSchedule, setSelectedRouteForSchedule] = useState<
+    string | undefined
+  >(undefined);
 
   // Toast feedback
   const [toast, setToast] = useState<{
@@ -64,27 +74,51 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     [],
   );
 
-  const loadTimetable = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await timetableRepository.getAllEntries();
-      setBuses(data);
+      const [entriesData, routesData] = await Promise.all([
+        timetableRepository.getAllEntries(),
+        timetableRepository.getAllRoutes(),
+      ]);
+      setBuses(entriesData);
+      setRoutes(routesData);
+
+      // In background, sync routes from server if online
+      timetableRepository.syncRoutesFromServer().then((fresh) => {
+        if (fresh && fresh.length > 0) {
+          setRoutes(fresh);
+        }
+      });
     } catch (err) {
-      console.error("Failed to load cached timetable for admin:", err);
+      console.error(
+        "Failed to load cached timetable or routes for admin:",
+        err,
+      );
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadTimetable();
-  }, [loadTimetable, lastSyncTime]);
+    loadData();
+  }, [loadData, lastSyncTime]);
 
   // Derived metrics
   const totalDepartures = buses.length;
-  const activeRoutesCount = useMemo(() => {
-    const set = new Set(buses.map((b) => b.routeNumber || b.routeId));
-    return set.size;
+  const activeRoutesCount =
+    routes.length > 0
+      ? routes.length
+      : new Set(buses.map((b) => b.routeNumber || b.routeId)).size;
+
+  const scheduleCountByRouteId = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const b of buses) {
+      if (b.routeId) {
+        counts[b.routeId] = (counts[b.routeId] || 0) + 1;
+      }
+    }
+    return counts;
   }, [buses]);
 
   const formattedSyncTime = useMemo(() => {
@@ -102,7 +136,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     try {
       const result = await syncService.resetAndSync();
       if (result.success) {
-        await loadTimetable();
+        await loadData();
         showToast(`Cache invalidated & synced ${result.syncedCount} entries.`);
       } else {
         showToast(result.error || "Failed to sync with server.", "error");
@@ -117,8 +151,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   const handleScheduleAdded = async () => {
     await onForceSync();
-    await loadTimetable();
+    await loadData();
     showToast("New schedule added successfully!");
+  };
+
+  const handleRouteAdded = async (newRoute: Route) => {
+    setRoutes((prev) => {
+      const exists = prev.some((r) => r.id === newRoute.id);
+      return exists ? prev : [...prev, newRoute];
+    });
+    showToast(
+      `Route ${newRoute.routeNumber} (${newRoute.origin} ➔ ${newRoute.destination}) created!`,
+    );
   };
 
   const handleQuickEditSuccess = async (updated: TimetableEntry) => {
@@ -128,7 +172,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   const handleBulkImportSuccess = async () => {
     await onForceSync();
-    await loadTimetable();
+    await loadData();
     showToast("Bulk import completed and timetable synchronized!");
   };
 
@@ -212,7 +256,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               </h1>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Live timetable operations, schedule modifications & bulk data
+              Manage timetable schedules, transit routes & bulk spreadsheet
               import
             </p>
           </div>
@@ -255,7 +299,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </div>
           <div>
             <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">
-              Active Transit Routes
+              Registered Routes
             </span>
             <span className="text-xl font-black text-slate-900 dark:text-white font-mono leading-tight">
               {activeRoutesCount}
@@ -283,11 +327,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       <div className="flex flex-wrap items-center gap-2.5">
         <button
           type="button"
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={() => {
+            setSelectedRouteForSchedule(undefined);
+            setIsAddModalOpen(true);
+          }}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#17232c] hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-bold shadow-xs active:scale-98 transition-all"
         >
           <Plus className="h-4 w-4" />
           <span>Add Schedule</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsAddRouteOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Route</span>
         </button>
 
         <button
@@ -312,30 +368,76 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </button>
       </div>
 
-      {/* Timetable Grid Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            Timetable Schedules
-          </h2>
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {buses.length} registered departures
-          </span>
-        </div>
+      {/* Management Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveSection("schedules")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeSection === "schedules"
+              ? "bg-[#17232c] text-white dark:bg-slate-700 shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          <Bus className="h-4 w-4" />
+          <span>Timetable Schedules ({buses.length})</span>
+        </button>
 
-        <TimetableGrid
-          buses={buses}
-          isLoading={isLoading}
-          onEdit={(entry) => setEditingEntry(entry)}
-          onDelete={(entry) => setDeletingEntry(entry)}
-        />
+        <button
+          type="button"
+          onClick={() => setActiveSection("routes")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeSection === "routes"
+              ? "bg-purple-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          <MapPin className="h-4 w-4" />
+          <span>Routes Management ({routes.length})</span>
+        </button>
       </div>
+
+      {/* Main Tab Content */}
+      {activeSection === "schedules" ? (
+        <div className="space-y-3">
+          <TimetableGrid
+            buses={buses}
+            isLoading={isLoading}
+            onEdit={(entry) => setEditingEntry(entry)}
+            onDelete={(entry) => setDeletingEntry(entry)}
+          />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <RoutesGrid
+            routes={routes}
+            scheduleCountByRouteId={scheduleCountByRouteId}
+            onAddScheduleForRoute={(route) => {
+              setSelectedRouteForSchedule(route.id);
+              setIsAddModalOpen(true);
+            }}
+            onAddRoute={() => setIsAddRouteOpen(true)}
+            isLoading={isLoading}
+          />
+        </div>
+      )}
 
       {/* Add Schedule Modal */}
       <AddScheduleModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        initialRouteId={selectedRouteForSchedule}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setSelectedRouteForSchedule(undefined);
+        }}
         onSuccess={handleScheduleAdded}
+      />
+
+      {/* Add Route Modal */}
+      <AddRouteModal
+        isOpen={isAddRouteOpen}
+        onClose={() => setIsAddRouteOpen(false)}
+        onSuccess={handleRouteAdded}
       />
 
       {/* Bulk Import Modal */}
