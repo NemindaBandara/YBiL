@@ -5,6 +5,8 @@ data class BusUiModel(
     val routeNumber: String,
     val destination: String,
     val operatorType: String,
+    val busCategory: String,
+    val busNumber: String?,
     val parkingTime: String,
     val leavingTime: String
 )

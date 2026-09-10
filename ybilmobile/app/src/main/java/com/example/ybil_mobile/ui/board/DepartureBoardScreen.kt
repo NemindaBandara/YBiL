@@ -29,6 +29,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ybil_mobile.YBiLApplication
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import java.time.LocalTime
+import androidx.compose.material3.CardDefaults
 
 @Composable
 fun DepartureBoardScreen(
@@ -73,6 +91,20 @@ fun DepartureBoardContent(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    var currentTime by remember {
+        mutableStateOf(LocalTime.now())
+    }
+
+    LaunchedEffect(Unit) {
+
+        while (true) {
+
+            currentTime = LocalTime.now()
+
+            delay(30_000)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -145,7 +177,9 @@ fun DepartureBoardContent(
 
                 BusCard(
                     bus = bus,
-                    isMarked = uiState.markedBusId == bus.id,
+                    currentTime = currentTime,
+                    isMarked =
+                        uiState.markedBusId == bus.id,
                     onMarkClick = {
                         onMarkBus(bus.id)
                     }
@@ -155,69 +189,261 @@ fun DepartureBoardContent(
     }
 }
 
+
 @Composable
-fun BusCard(
+private fun BusCard(
     bus: BusUiModel,
+    currentTime: LocalTime,
     isMarked: Boolean,
-    onMarkClick: () -> Unit
+    onMarkClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
 
+    val departureStatus =
+        calculateDepartureStatus(
+            leavingTime = bus.leavingTime,
+            currentTime = currentTime
+        )
+
+    val minutesUntilDeparture =
+        calculateMinutesUntilDeparture(
+            leavingTime = bus.leavingTime,
+            currentTime = currentTime
+        )
+
+    val countdownText =
+        displayDepartureCountdown(
+            status = departureStatus,
+            minutesUntilDeparture = minutesUntilDeparture
+        )
+
+    val containerColor =
+        when (departureStatus) {
+
+            DepartureStatus.UPCOMING ->
+                MaterialTheme.colorScheme.surface
+
+            DepartureStatus.URGENT ->
+                MaterialTheme.colorScheme.errorContainer
+
+            DepartureStatus.LEAVING_NOW ->
+                MaterialTheme.colorScheme.tertiaryContainer
+
+            DepartureStatus.DEPARTED ->
+                MaterialTheme.colorScheme.surfaceVariant
+
+            DepartureStatus.HIDDEN ->
+                MaterialTheme.colorScheme.surfaceVariant
+        }
+
+    val contentColor =
+        when (departureStatus) {
+
+            DepartureStatus.UPCOMING ->
+                MaterialTheme.colorScheme.onSurface
+
+            DepartureStatus.URGENT ->
+                MaterialTheme.colorScheme.onErrorContainer
+
+            DepartureStatus.LEAVING_NOW ->
+                MaterialTheme.colorScheme.onTertiaryContainer
+
+            DepartureStatus.DEPARTED ->
+                MaterialTheme.colorScheme.onSurfaceVariant
+
+            DepartureStatus.HIDDEN ->
+                MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        )
     ) {
 
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
-            Text(
-                text = "Route ${bus.routeNumber}",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Text(
+                    text = "Route ${bus.routeNumber}",
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = displayOperator(bus.operatorType),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
 
             Text(
                 text = bus.destination,
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
             Text(
-                text = bus.operatorType
+                text = displayBusDetails(bus),
+                style = MaterialTheme.typography.bodyMedium
             )
 
-            Text(
-                text = "Parks at ${bus.parkingTime}"
-            )
-
-            Text(
-                text = "Leaves at ${bus.leavingTime}"
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+            HorizontalDivider()
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
 
-                Button(
-                    onClick = onMarkClick
-                ) {
+                Column {
                     Text(
-                        text = if (isMarked) {
-                            "Unmark"
-                        } else {
-                            "Mark"
-                        }
+                        text = "Parking",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+
+                    Text(
+                        text = bus.parkingTime,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+
+                    Text(
+                        text = "Leaving",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+
+                    Text(
+                        text = bus.leavingTime,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = countdownText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight =
+                            if (
+                                departureStatus == DepartureStatus.URGENT ||
+                                departureStatus == DepartureStatus.LEAVING_NOW
+                            ) {
+                                FontWeight.Bold
+                            } else {
+                                FontWeight.Normal
+                            }
                     )
                 }
             }
+
+            Button(
+                onClick = onMarkClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Text(
+                    text =
+                        if (isMarked) {
+                            "Unmark Bus"
+                        } else {
+                            "Mark This Bus"
+                        }
+                )
+            }
         }
+    }
+}
+
+private fun displayOperator(
+    operatorType: String
+): String {
+
+    return when (operatorType) {
+        "SLTB" -> "SLTB"
+        "PRIVATE" -> "Private"
+        else -> operatorType
+    }
+}
+
+private fun displayCategory(
+    busCategory: String
+): String {
+
+    return when (busCategory) {
+        "NORMAL" -> "Normal"
+        "SEMI" -> "Semi"
+        "LUXURY_AC" -> "Luxury AC"
+        "EXPRESSWAY" -> "Expressway"
+        else -> busCategory
+    }
+}
+
+private fun displayBusDetails(
+    bus: BusUiModel
+): String {
+
+    val category =
+        displayCategory(bus.busCategory)
+
+    val busNumber =
+        bus.busNumber
+            ?.takeIf { it.isNotBlank() }
+            ?: "Not assigned"
+
+    return "$category • Bus $busNumber"
+}
+
+private fun displayDepartureStatus(
+    status: DepartureStatus
+): String {
+
+    return when (status) {
+
+        DepartureStatus.UPCOMING ->
+            "Upcoming"
+
+        DepartureStatus.URGENT ->
+            "Leaving soon"
+
+        DepartureStatus.LEAVING_NOW ->
+            "Leaving now"
+
+        DepartureStatus.DEPARTED ->
+            "Departed"
+
+        DepartureStatus.HIDDEN ->
+            "Past"
+    }
+}
+
+private fun displayDepartureCountdown(
+    status: DepartureStatus,
+    minutesUntilDeparture: Long
+): String {
+
+    return when (status) {
+
+        DepartureStatus.UPCOMING ->
+            "$minutesUntilDeparture min"
+
+        DepartureStatus.URGENT ->
+            "Leaving in $minutesUntilDeparture min"
+
+        DepartureStatus.LEAVING_NOW ->
+            "Leaving now"
+
+        DepartureStatus.DEPARTED ->
+            "Departed ${-minutesUntilDeparture} min ago"
+
+        DepartureStatus.HIDDEN ->
+            "Past"
     }
 }

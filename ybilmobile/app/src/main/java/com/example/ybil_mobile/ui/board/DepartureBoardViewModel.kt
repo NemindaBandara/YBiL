@@ -114,14 +114,15 @@ class DepartureBoardViewModel(
 }
 
 
-private fun TimetableEntryEntity.toBusUiModel():
-        BusUiModel {
+private fun TimetableEntryEntity.toBusUiModel(): BusUiModel {
 
     return BusUiModel(
         id = id,
         routeNumber = routeNumber,
         destination = destination,
         operatorType = operatorType,
+        busCategory = busCategory,
+        busNumber = busNumber,
         parkingTime = scheduledParkingTime,
         leavingTime = scheduledLeavingTime
     )
