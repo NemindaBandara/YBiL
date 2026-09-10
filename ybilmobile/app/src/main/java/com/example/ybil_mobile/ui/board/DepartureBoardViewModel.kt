@@ -1,62 +1,100 @@
 package com.example.ybil_mobile.ui.board
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.ybil_mobile.data.remote.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class DepartureBoardViewModel : ViewModel() {
 
-    private val fakeBuses = listOf(
-        BusUiModel(
-            id = "bus-138-0830",
-            routeNumber = "138",
-            destination = "Maharagama",
-            operatorType = "SLTB",
-            parkingTime = "08:15",
-            leavingTime = "08:30"
-        ),
-        BusUiModel(
-            id = "bus-100-0900",
-            routeNumber = "100",
-            destination = "Panadura",
-            operatorType = "PRIVATE",
-            parkingTime = "08:45",
-            leavingTime = "09:00"
-        ),
-        BusUiModel(
-            id = "bus-02-0915",
-            routeNumber = "02",
-            destination = "Galle",
-            operatorType = "SLTB",
-            parkingTime = "09:00",
-            leavingTime = "09:15"
-        )
-    )
-
-    private val _uiState = MutableStateFlow(
-        DepartureBoardUiState(
-            buses = fakeBuses
-        )
-    )
+    private val _uiState =
+        MutableStateFlow(DepartureBoardUiState())
 
     val uiState: StateFlow<DepartureBoardUiState> =
         _uiState.asStateFlow()
 
-    fun toggleMarkedBus(busId: String) {
+    init {
+        loadTimetable()
+    }
 
-        val currentMarkedBusId =
-            _uiState.value.markedBusId
+    fun loadTimetable() {
 
-        val newMarkedBusId =
-            if (currentMarkedBusId == busId) {
-                null
-            } else {
-                busId
+        viewModelScope.launch {
+
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    errorMessage = null
+                )
             }
 
-        _uiState.value = _uiState.value.copy(
-            markedBusId = newMarkedBusId
-        )
+            try {
+
+                val response =
+                    RetrofitClient.api.syncTimetable(
+                        since = 0L
+                    )
+
+                val buses =
+                    response.entries.map { entry ->
+
+                        BusUiModel(
+                            id = entry.id,
+                            routeNumber =
+                                entry.route.routeNumber,
+                            destination =
+                                entry.route.destination,
+                            operatorType =
+                                entry.operatorType,
+                            parkingTime =
+                                entry.scheduledParkingTime,
+                            leavingTime =
+                                entry.scheduledLeavingTime
+                        )
+                    }
+
+                _uiState.update {
+                    it.copy(
+                        buses = buses,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
+
+            } catch (exception: Exception) {
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage =
+                            exception.message
+                                ?: "Unknown error"
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleMarkedBus(busId: String) {
+
+        _uiState.update { currentState ->
+
+            val newMarkedBusId =
+                if (
+                    currentState.markedBusId == busId
+                ) {
+                    null
+                } else {
+                    busId
+                }
+
+            currentState.copy(
+                markedBusId = newMarkedBusId
+            )
+        }
     }
 }
