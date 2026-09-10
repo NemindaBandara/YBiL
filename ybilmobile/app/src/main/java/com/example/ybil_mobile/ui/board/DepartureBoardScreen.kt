@@ -25,19 +25,44 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ybil_mobile.YBiLApplication
 
 @Composable
 fun DepartureBoardScreen(
-    modifier: Modifier = Modifier,
-    viewModel: DepartureBoardViewModel = viewModel()
+    modifier: Modifier = Modifier
 ) {
 
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val application =
+        LocalContext.current.applicationContext
+                as YBiLApplication
+
+    val viewModelFactory =
+        remember(application) {
+            DepartureBoardViewModelFactory(
+                repository =
+                    application.timetableRepository
+            )
+        }
+
+    val viewModel: DepartureBoardViewModel =
+        viewModel(
+            factory = viewModelFactory
+        )
+
+    val uiState by
+    viewModel.uiState
+        .collectAsStateWithLifecycle()
 
     DepartureBoardContent(
         modifier = modifier,
         uiState = uiState,
-        onMarkBus = viewModel::toggleMarkedBus
+        onMarkBus =
+            viewModel::toggleMarkedBus,
+        onRefresh =
+            viewModel::refreshTimetable
     )
 }
 
@@ -45,6 +70,7 @@ fun DepartureBoardScreen(
 fun DepartureBoardContent(
     uiState: DepartureBoardUiState,
     onMarkBus: (String) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -72,19 +98,36 @@ fun DepartureBoardContent(
         if (uiState.isLoading) {
 
             Text(
-                text = "Loading timetable..."
+                text = "Syncing timetable..."
             )
 
             Spacer(
-                modifier = Modifier.height(16.dp)
+                modifier = Modifier.height(8.dp)
             )
         }
 
         if (uiState.errorMessage != null) {
 
+            val message =
+                if (uiState.buses.isNotEmpty()) {
+                    "Offline — showing saved timetable"
+                } else {
+                    "Unable to load timetable"
+                }
+
             Text(
-                text = "Unable to load timetable: ${uiState.errorMessage}"
+                text = message
             )
+
+            Text(
+                text = uiState.errorMessage
+            )
+
+            Button(
+                onClick = onRefresh
+            ) {
+                Text("Retry")
+            }
 
             Spacer(
                 modifier = Modifier.height(16.dp)

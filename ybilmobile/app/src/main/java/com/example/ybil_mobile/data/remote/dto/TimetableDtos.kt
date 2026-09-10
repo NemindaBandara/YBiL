@@ -4,7 +4,7 @@ data class TimetableSyncResponseDto(
     val syncedAt: Long,
     val totalCount: Int,
     val entries: List<TimetableEntryDto>,
-    val deletedEntryIds: List<String>
+    val deletedEntryIds: List<String>?
 )
 
 data class TimetableEntryDto(

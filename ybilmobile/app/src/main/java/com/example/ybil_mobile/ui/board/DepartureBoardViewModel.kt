@@ -2,31 +2,63 @@ package com.example.ybil_mobile.ui.board
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.ybil_mobile.data.remote.RetrofitClient
+import com.example.ybil_mobile.data.local.entity.TimetableEntryEntity
+import com.example.ybil_mobile.data.repository.TimetableRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class DepartureBoardViewModel : ViewModel() {
+class DepartureBoardViewModel(
+    private val repository: TimetableRepository
+) : ViewModel() {
 
     private val _uiState =
-        MutableStateFlow(DepartureBoardUiState())
+        MutableStateFlow(
+            DepartureBoardUiState(
+                isLoading = true
+            )
+        )
 
     val uiState: StateFlow<DepartureBoardUiState> =
         _uiState.asStateFlow()
 
     init {
-        loadTimetable()
+        observeLocalTimetable()
+        refreshTimetable()
     }
 
-    fun loadTimetable() {
+    private fun observeLocalTimetable() {
 
         viewModelScope.launch {
 
-            _uiState.update {
-                it.copy(
+            repository
+                .observeTimetable()
+                .collect { entries ->
+
+                    val buses =
+                        entries.map { entry ->
+                            entry.toBusUiModel()
+                        }
+
+                    _uiState.update { currentState ->
+
+                        currentState.copy(
+                            buses = buses
+                        )
+                    }
+                }
+        }
+    }
+
+    fun refreshTimetable() {
+
+        viewModelScope.launch {
+
+            _uiState.update { currentState ->
+
+                currentState.copy(
                     isLoading = true,
                     errorMessage = null
                 )
@@ -34,32 +66,11 @@ class DepartureBoardViewModel : ViewModel() {
 
             try {
 
-                val response =
-                    RetrofitClient.api.syncTimetable(
-                        since = 0L
-                    )
+                repository.syncTimetable()
 
-                val buses =
-                    response.entries.map { entry ->
+                _uiState.update { currentState ->
 
-                        BusUiModel(
-                            id = entry.id,
-                            routeNumber =
-                                entry.route.routeNumber,
-                            destination =
-                                entry.route.destination,
-                            operatorType =
-                                entry.operatorType,
-                            parkingTime =
-                                entry.scheduledParkingTime,
-                            leavingTime =
-                                entry.scheduledLeavingTime
-                        )
-                    }
-
-                _uiState.update {
-                    it.copy(
-                        buses = buses,
+                    currentState.copy(
                         isLoading = false,
                         errorMessage = null
                     )
@@ -67,19 +78,22 @@ class DepartureBoardViewModel : ViewModel() {
 
             } catch (exception: Exception) {
 
-                _uiState.update {
-                    it.copy(
+                _uiState.update { currentState ->
+
+                    currentState.copy(
                         isLoading = false,
                         errorMessage =
                             exception.message
-                                ?: "Unknown error"
+                                ?: "Unable to sync timetable"
                     )
                 }
             }
         }
     }
 
-    fun toggleMarkedBus(busId: String) {
+    fun toggleMarkedBus(
+        busId: String
+    ) {
 
         _uiState.update { currentState ->
 
@@ -97,4 +111,18 @@ class DepartureBoardViewModel : ViewModel() {
             )
         }
     }
+}
+
+
+private fun TimetableEntryEntity.toBusUiModel():
+        BusUiModel {
+
+    return BusUiModel(
+        id = id,
+        routeNumber = routeNumber,
+        destination = destination,
+        operatorType = operatorType,
+        parkingTime = scheduledParkingTime,
+        leavingTime = scheduledLeavingTime
+    )
 }
