@@ -5,6 +5,9 @@ import com.example.ybil_mobile.data.local.YBiLDatabase
 import com.example.ybil_mobile.data.remote.RetrofitClient
 import com.example.ybil_mobile.data.repository.TimetableRepository
 import com.example.ybil_mobile.data.repository.TimetableRepositoryImpl
+import com.example.ybil_mobile.data.repository.AuthRepository
+import com.example.ybil_mobile.data.repository.AuthRepositoryImpl
+import com.example.ybil_mobile.security.SessionManager
 
 class YBiLApplication : Application() {
 
@@ -16,6 +19,33 @@ class YBiLApplication : Application() {
         TimetableRepositoryImpl(
             apiService = RetrofitClient.api,
             database = database
+        )
+    }
+
+    val sessionManager by lazy {
+        SessionManager(this)
+    }
+
+    val authenticatedApi by lazy {
+
+        RetrofitClient
+            .createAuthenticatedApi(
+                sessionManager
+            )
+    }
+
+    val authRepository:
+            AuthRepository by lazy {
+
+        AuthRepositoryImpl(
+            publicApi =
+                RetrofitClient.api,
+
+            authenticatedApi =
+                authenticatedApi,
+
+            sessionManager =
+                sessionManager
         )
     }
 }
