@@ -47,6 +47,11 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 
 @Composable
 fun DepartureBoardScreen(
@@ -96,6 +101,18 @@ fun DepartureBoardContent(
         mutableStateOf(LocalTime.now())
     }
 
+    var searchQuery by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var selectedOperator by rememberSaveable {
+        mutableStateOf("ALL")
+    }
+
+    var selectedCategory by rememberSaveable {
+        mutableStateOf("ALL")
+    }
+
     LaunchedEffect(Unit) {
 
         while (true) {
@@ -105,6 +122,69 @@ fun DepartureBoardContent(
             delay(30_000)
         }
     }
+
+    val visibleBuses =
+        uiState.buses.filter { bus ->
+
+            val departureStatus =
+                calculateDepartureStatus(
+                    leavingTime = bus.leavingTime,
+                    currentTime = currentTime
+                )
+
+            val isVisible =
+                departureStatus !=
+                        DepartureStatus.HIDDEN
+
+            val query =
+                searchQuery.trim()
+
+            val matchesSearch =
+                query.isBlank() ||
+                        bus.routeNumber.contains(
+                            query,
+                            ignoreCase = true
+                        ) ||
+                        bus.destination.contains(
+                            query,
+                            ignoreCase = true
+                        ) ||
+                        bus.busNumber
+                            ?.contains(
+                                query,
+                                ignoreCase = true
+                            ) == true
+
+            val matchesOperator =
+                selectedOperator == "ALL" ||
+                        bus.operatorType == selectedOperator
+
+            val matchesCategory =
+                selectedCategory == "ALL" ||
+                        bus.busCategory == selectedCategory
+
+            isVisible &&
+                    matchesSearch &&
+                    matchesOperator &&
+                    matchesCategory
+        }
+
+
+    //Decide why there are no visible buses.
+    val emptyMessage =
+        when {
+
+            uiState.buses.isEmpty() ->
+                "No timetable entries available."
+
+            searchQuery.isNotBlank() ||
+                    selectedOperator != "ALL" ||
+                    selectedCategory != "ALL" ->
+                "No buses match your search or filter."
+
+            else ->
+                "No upcoming buses right now."
+        }
 
     Column(
         modifier = modifier
@@ -127,6 +207,7 @@ fun DepartureBoardContent(
             modifier = Modifier.height(16.dp)
         )
 
+        //Sync status
         if (uiState.isLoading) {
 
             Text(
@@ -138,6 +219,8 @@ fun DepartureBoardContent(
             )
         }
 
+        //Network / synchronization error
+        //If Room already contains buses, we still show them.
         if (uiState.errorMessage != null) {
 
             val message =
@@ -148,11 +231,16 @@ fun DepartureBoardContent(
                 }
 
             Text(
-                text = message
+                text = message,
+                fontWeight = FontWeight.Bold
             )
 
             Text(
                 text = uiState.errorMessage
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
             )
 
             Button(
@@ -166,24 +254,196 @@ fun DepartureBoardContent(
             )
         }
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        //Search
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { newValue ->
+                searchQuery = newValue
+            },
+            label = {
+                Text("Search buses")
+            },
+            placeholder = {
+                Text(
+                    "Route, destination or bus number"
+                )
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+      //Operator filters
+
+        Row(
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
         ) {
 
-            items(
-                items = uiState.buses,
-                key = { bus -> bus.id }
-            ) { bus ->
+            FilterChip(
+                selected =
+                    selectedOperator == "ALL",
+                onClick = {
+                    selectedOperator = "ALL"
+                },
+                label = {
+                    Text("All")
+                }
+            )
 
-                BusCard(
-                    bus = bus,
-                    currentTime = currentTime,
-                    isMarked =
-                        uiState.markedBusId == bus.id,
-                    onMarkClick = {
-                        onMarkBus(bus.id)
-                    }
+            FilterChip(
+                selected =
+                    selectedOperator == "SLTB",
+                onClick = {
+                    selectedOperator = "SLTB"
+                },
+                label = {
+                    Text("SLTB")
+                }
+            )
+
+            FilterChip(
+                selected =
+                    selectedOperator == "PRIVATE",
+                onClick = {
+                    selectedOperator = "PRIVATE"
+                },
+                label = {
+                    Text("Private")
+                }
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+        Text(
+            text = "Bus category",
+            style = MaterialTheme.typography.labelLarge
+        )
+
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
+
+        //Bus Category filters
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(
+                    rememberScrollState()
+                ),
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+
+            FilterChip(
+                selected =
+                    selectedCategory == "ALL",
+                onClick = {
+                    selectedCategory = "ALL"
+                },
+                label = {
+                    Text("All")
+                }
+            )
+
+            FilterChip(
+                selected =
+                    selectedCategory == "NORMAL",
+                onClick = {
+                    selectedCategory = "NORMAL"
+                },
+                label = {
+                    Text("Normal")
+                }
+            )
+
+            FilterChip(
+                selected =
+                    selectedCategory == "SEMI",
+                onClick = {
+                    selectedCategory = "SEMI"
+                },
+                label = {
+                    Text("Semi")
+                }
+            )
+
+            FilterChip(
+                selected =
+                    selectedCategory == "LUXURY_AC",
+                onClick = {
+                    selectedCategory = "LUXURY_AC"
+                },
+                label = {
+                    Text("Luxury AC")
+                }
+            )
+
+            FilterChip(
+                selected =
+                    selectedCategory == "EXPRESSWAY",
+                onClick = {
+                    selectedCategory = "EXPRESSWAY"
+                },
+                label = {
+                    Text("Expressway")
+                }
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+        // Empty state or departure list
+        if (
+            visibleBuses.isEmpty() &&
+            !uiState.isLoading
+        ) {
+
+            Text(
+                text = emptyMessage,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(
+                    vertical = 24.dp
                 )
+            )
+
+        } else {
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+
+                items(
+                    items = visibleBuses,
+                    key = { bus ->
+                        bus.id
+                    }
+                ) { bus ->
+
+                    BusCard(
+                        bus = bus,
+                        currentTime = currentTime,
+                        isMarked =
+                            uiState.markedBusId ==
+                                    bus.id,
+                        onMarkClick = {
+                            onMarkBus(bus.id)
+                        }
+                    )
+                }
             }
         }
     }
