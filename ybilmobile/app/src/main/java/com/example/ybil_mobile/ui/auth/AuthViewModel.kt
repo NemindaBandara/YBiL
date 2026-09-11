@@ -29,7 +29,6 @@ class AuthViewModel(
         validateStoredSession()
     }
 
-
     private fun observeSession() {
 
         viewModelScope.launch {

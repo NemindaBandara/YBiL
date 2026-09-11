@@ -8,6 +8,10 @@ import com.example.ybil_mobile.data.remote.dto.AuthResponseDto
 import com.example.ybil_mobile.data.remote.dto.AuthUserDto
 import retrofit2.http.Body
 import retrofit2.http.POST
+import com.example.ybil_mobile.data.remote.dto.MarkTripRequestDto
+import com.example.ybil_mobile.data.remote.dto.MarkedTripResponseDto
+import retrofit2.http.DELETE
+import retrofit2.http.Path
 
 interface YBiLApiService {
 
@@ -21,13 +25,25 @@ interface YBiLApiService {
         @Body request: AuthRequestDto
     ): AuthResponseDto
 
-
     @POST("api/auth/login")
     suspend fun login(
         @Body request: AuthRequestDto
     ): AuthResponseDto
 
-
     @GET("api/auth/me")
     suspend fun getCurrentUser(): AuthUserDto
+
+    @POST("api/trips/mark")
+    suspend fun markTrip(
+        @Body request: MarkTripRequestDto
+    ): MarkedTripResponseDto
+
+    @GET("api/trips/active")
+    suspend fun getActiveTrips():
+            List<MarkedTripResponseDto>
+
+    @DELETE("api/trips/{tripId}")
+    suspend fun cancelTrip(
+        @Path("tripId") tripId: String
+    )
 }

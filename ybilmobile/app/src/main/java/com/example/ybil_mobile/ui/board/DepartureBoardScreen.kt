@@ -56,6 +56,11 @@ import com.example.ybil_mobile.ui.auth.AuthBottomSheet
 import com.example.ybil_mobile.ui.auth.AuthViewModel
 import com.example.ybil_mobile.ui.auth.AuthViewModelFactory
 import androidx.compose.material3.OutlinedButton
+import com.example.ybil_mobile.ui.trip.ActiveTripViewModel
+import com.example.ybil_mobile.ui.trip.ActiveTripViewModelFactory
+import androidx.compose.runtime.LaunchedEffect
+import com.example.ybil_mobile.ui.trip.ActiveTripUiState
+import com.example.ybil_mobile.ui.trip.ActiveTripShelf
 
 @Composable
 fun DepartureBoardScreen(
@@ -99,6 +104,27 @@ fun DepartureBoardScreen(
                 authViewModelFactory
         )
 
+    val activeTripViewModelFactory =
+        remember(application) {
+
+            ActiveTripViewModelFactory(
+                repository =
+                    application.tripRepository
+            )
+        }
+
+    val activeTripViewModel:
+            ActiveTripViewModel =
+        viewModel(
+            factory =
+                activeTripViewModelFactory
+        )
+
+    val activeTripUiState by
+    activeTripViewModel
+        .uiState
+        .collectAsStateWithLifecycle()
+
     val authUiState by
     authViewModel
         .uiState
@@ -109,9 +135,28 @@ fun DepartureBoardScreen(
         mutableStateOf(false)
     }
 
+    LaunchedEffect(
+        authUiState.isLoggedIn
+    ) {
+
+        if (
+            authUiState.isLoggedIn
+        ) {
+
+            activeTripViewModel
+                .loadActiveTrip()
+
+        } else {
+
+            activeTripViewModel
+                .clearLocalState()
+        }
+    }
+
     DepartureBoardContent(
         modifier = modifier,
         uiState = uiState,
+
         accountLabel =
             if (
                 authUiState.isLoggedIn
@@ -121,11 +166,35 @@ fun DepartureBoardScreen(
             } else {
                 "Login"
             },
+
+        activeTripUiState =
+            activeTripUiState,
+
         onAccountClick = {
             showAuthSheet = true
         },
-        onMarkBus =
-            viewModel::toggleMarkedBus,
+
+        onMarkBus = { busId ->
+
+            if (
+                authUiState.isLoggedIn
+            ) {
+
+                activeTripViewModel
+                    .markTrip(busId)
+
+            } else {
+
+                showAuthSheet = true
+            }
+        },
+
+        onUnmarkBus = {
+
+            activeTripViewModel
+                .cancelActiveTrip()
+        },
+
         onRefresh =
             viewModel::refreshTimetable
     )
@@ -159,8 +228,10 @@ fun DepartureBoardScreen(
 fun DepartureBoardContent(
     uiState: DepartureBoardUiState,
     accountLabel: String,
+    activeTripUiState: ActiveTripUiState,
     onAccountClick: () -> Unit,
     onMarkBus: (String) -> Unit,
+    onUnmarkBus: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -502,6 +573,25 @@ fun DepartureBoardContent(
             modifier = Modifier.height(12.dp)
         )
 
+        if (
+            activeTripUiState.errorMessage != null
+        ) {
+
+            Text(
+                text =
+                    activeTripUiState.errorMessage,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .error
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
+        }
+
         // Empty state or departure list
         if (
             visibleBuses.isEmpty() &&
@@ -532,19 +622,48 @@ fun DepartureBoardContent(
                         bus.id
                     }
                 ) { bus ->
+                    val isMarked =
+                        activeTripUiState
+                            .activeTrip
+                            ?.timetableEntryId ==
+                                bus.id
 
                     BusCard(
                         bus = bus,
                         currentTime = currentTime,
-                        isMarked =
-                            uiState.markedBusId ==
-                                    bus.id,
+                        isMarked = isMarked,
+
                         onMarkClick = {
-                            onMarkBus(bus.id)
+
+                            if (isMarked) {
+
+                                onUnmarkBus()
+
+                            } else {
+
+                                onMarkBus(
+                                    bus.id
+                                )
+                            }
                         }
                     )
                 }
             }
+            activeTripUiState
+                .activeTrip
+                ?.let { activeTrip ->
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(8.dp)
+                    )
+
+                    ActiveTripShelf(
+                        trip = activeTrip,
+                        onUnmark =
+                            onUnmarkBus
+                    )
+                }
         }
     }
 }

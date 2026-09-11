@@ -8,6 +8,8 @@ import com.example.ybil_mobile.data.repository.TimetableRepositoryImpl
 import com.example.ybil_mobile.data.repository.AuthRepository
 import com.example.ybil_mobile.data.repository.AuthRepositoryImpl
 import com.example.ybil_mobile.security.SessionManager
+import com.example.ybil_mobile.data.repository.TripRepository
+import com.example.ybil_mobile.data.repository.TripRepositoryImpl
 
 class YBiLApplication : Application() {
 
@@ -46,6 +48,15 @@ class YBiLApplication : Application() {
 
             sessionManager =
                 sessionManager
+        )
+    }
+
+    val tripRepository:
+            TripRepository by lazy {
+
+        TripRepositoryImpl(
+            authenticatedApi =
+                authenticatedApi
         )
     }
 }

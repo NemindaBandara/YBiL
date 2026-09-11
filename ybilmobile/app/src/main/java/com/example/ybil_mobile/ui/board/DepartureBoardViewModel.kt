@@ -90,27 +90,6 @@ class DepartureBoardViewModel(
             }
         }
     }
-
-    fun toggleMarkedBus(
-        busId: String
-    ) {
-
-        _uiState.update { currentState ->
-
-            val newMarkedBusId =
-                if (
-                    currentState.markedBusId == busId
-                ) {
-                    null
-                } else {
-                    busId
-                }
-
-            currentState.copy(
-                markedBusId = newMarkedBusId
-            )
-        }
-    }
 }
 
 
