@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import com.example.ybil_mobile.data.remote.dto.AuthUserDto
 
 
 private val Context.sessionDataStore:
@@ -51,6 +52,11 @@ class SessionManager(
             stringPreferencesKey(
                 "role"
             )
+
+        val REFRESH_TOKEN =
+            stringPreferencesKey(
+                "refresh_token"
+            )
     }
 
 
@@ -73,6 +79,11 @@ class SessionManager(
                     accessToken =
                         preferences[
                             ACCESS_TOKEN
+                        ],
+
+                    refreshToken =
+                        preferences[
+                            REFRESH_TOKEN
                         ],
 
                     tokenType =
@@ -98,7 +109,7 @@ class SessionManager(
             }
 
 
-    suspend fun saveSession(
+    suspend fun saveTokens(
         response: AuthResponseDto
     ) {
 
@@ -108,17 +119,29 @@ class SessionManager(
             preferences[ACCESS_TOKEN] =
                 response.accessToken
 
+            preferences[REFRESH_TOKEN] =
+                response.refreshToken
+
             preferences[TOKEN_TYPE] =
                 response.tokenType
+        }
+    }
+
+    suspend fun saveUser(
+        user: AuthUserDto
+    ) {
+
+        context.sessionDataStore.edit {
+                preferences ->
 
             preferences[USER_ID] =
-                response.user.id
+                user.id
 
             preferences[USERNAME] =
-                response.user.username
+                user.username
 
             preferences[ROLE] =
-                response.user.role
+                user.role
         }
     }
 

@@ -7,8 +7,9 @@ data class AuthRequestDto(
 
 data class AuthResponseDto(
     val accessToken: String,
+    val refreshToken: String,
     val tokenType: String,
-    val user: AuthUserDto
+    val expiresIn: Long
 )
 
 data class AuthUserDto(

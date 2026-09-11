@@ -30,7 +30,7 @@ class AuthRepositoryImpl(
         password: String
     ): AuthUserDto {
 
-        val response =
+        val authResponse =
             publicApi.login(
                 AuthRequestDto(
                     username = username,
@@ -38,11 +38,25 @@ class AuthRepositoryImpl(
                 )
             )
 
-        sessionManager.saveSession(
-            response
+        /*
+         * Save the access token first.
+         *
+         * This is necessary because the next call,
+         * /api/auth/me, requires Bearer authentication.
+         */
+        sessionManager.saveTokens(
+            authResponse
         )
 
-        return response.user
+        val user =
+            authenticatedApi
+                .getCurrentUser()
+
+        sessionManager.saveUser(
+            user
+        )
+
+        return user
     }
 
 
@@ -51,7 +65,7 @@ class AuthRepositoryImpl(
         password: String
     ): AuthUserDto {
 
-        val response =
+        val authResponse =
             publicApi.register(
                 AuthRequestDto(
                     username = username,
@@ -59,11 +73,19 @@ class AuthRepositoryImpl(
                 )
             )
 
-        sessionManager.saveSession(
-            response
+        sessionManager.saveTokens(
+            authResponse
         )
 
-        return response.user
+        val user =
+            authenticatedApi
+                .getCurrentUser()
+
+        sessionManager.saveUser(
+            user
+        )
+
+        return user
     }
 
 

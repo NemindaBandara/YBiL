@@ -52,6 +52,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.example.ybil_mobile.ui.auth.AuthBottomSheet
+import com.example.ybil_mobile.ui.auth.AuthViewModel
+import com.example.ybil_mobile.ui.auth.AuthViewModelFactory
+import androidx.compose.material3.OutlinedButton
 
 @Composable
 fun DepartureBoardScreen(
@@ -79,19 +83,83 @@ fun DepartureBoardScreen(
     viewModel.uiState
         .collectAsStateWithLifecycle()
 
+    val authViewModelFactory =
+        remember(application) {
+
+            AuthViewModelFactory(
+                repository =
+                    application.authRepository
+            )
+        }
+
+    val authViewModel:
+            AuthViewModel =
+        viewModel(
+            factory =
+                authViewModelFactory
+        )
+
+    val authUiState by
+    authViewModel
+        .uiState
+        .collectAsStateWithLifecycle()
+
+    var showAuthSheet by
+    rememberSaveable {
+        mutableStateOf(false)
+    }
+
     DepartureBoardContent(
         modifier = modifier,
         uiState = uiState,
+        accountLabel =
+            if (
+                authUiState.isLoggedIn
+            ) {
+                authUiState.username
+                    ?: "Account"
+            } else {
+                "Login"
+            },
+        onAccountClick = {
+            showAuthSheet = true
+        },
         onMarkBus =
             viewModel::toggleMarkedBus,
         onRefresh =
             viewModel::refreshTimetable
     )
+
+    if (showAuthSheet) {
+
+        AuthBottomSheet(
+            uiState =
+                authUiState,
+
+            onLogin =
+                authViewModel::login,
+
+            onRegister =
+                authViewModel::register,
+
+            onLogout =
+                authViewModel::logout,
+
+            onClearError =
+                authViewModel::clearError,
+
+            onDismiss = {
+                showAuthSheet = false
+            }
+        )
+    }
 }
 
 @Composable
 fun DepartureBoardContent(
     uiState: DepartureBoardUiState,
+    accountLabel: String,
+    onAccountClick: () -> Unit,
     onMarkBus: (String) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
@@ -192,16 +260,48 @@ fun DepartureBoardContent(
             .padding(16.dp)
     ) {
 
-        Text(
-            text = "YBiL",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier =
+                Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.SpaceBetween,
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
 
-        Text(
-            text = "Departures from Colombo Central",
-            style = MaterialTheme.typography.bodyLarge
-        )
+            Column {
+
+                Text(
+                    text = "YBiL",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .headlineLarge,
+                    fontWeight =
+                        FontWeight.Bold
+                )
+
+                Text(
+                    text =
+                        "Departures from Colombo Central",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyLarge
+                )
+            }
+
+            OutlinedButton(
+                onClick =
+                    onAccountClick
+            ) {
+
+                Text(
+                    text =
+                        accountLabel
+                )
+            }
+        }
 
         Spacer(
             modifier = Modifier.height(16.dp)
