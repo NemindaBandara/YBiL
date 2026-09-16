@@ -190,7 +190,7 @@ fun MainRootScreen(
                             onOpenAuthSheet = { showAuthSheet = true },
                             onRequestLogout = { showLogoutConfirmation = true },
                             onViewPrivacyPolicy = { viewingPrivacyPolicy = true },
-                            onViewDisclaimer = { viewingDisclaimerDialog = true }
+                            onViewDisclaimer = { viewingPrivacyPolicy = true }
                         )
                     }
                 }

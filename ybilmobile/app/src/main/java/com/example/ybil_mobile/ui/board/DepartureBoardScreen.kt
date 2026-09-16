@@ -1,7 +1,13 @@
 package com.example.ybil_mobile.ui.board
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,12 +22,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -43,21 +52,26 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.example.ybil_mobile.YBiLApplication
 import com.example.ybil_mobile.ui.auth.AuthUiState
 import com.example.ybil_mobile.ui.auth.AuthViewModel
@@ -164,21 +178,20 @@ fun DepartureBoardContent(
         }
     }
 
-    val visibleBuses = remember(uiState.buses, currentTime, searchQuery, selectedOperator, selectedCategory, showDeparted) {
-        uiState.buses.filter { bus ->
+    val (availableBuses, departedBuses) = remember(uiState.buses, currentTime, searchQuery, selectedOperator, selectedCategory, showDeparted) {
+        val query = searchQuery.trim()
+        val filtered = uiState.buses.filter { bus ->
             val departureStatus = calculateDepartureStatus(
                 leavingTime = bus.leavingTime,
                 currentTime = currentTime
             )
 
-            // Switch to display departed buses (Item 2)
             val isVisible = if (showDeparted) {
                 departureStatus != DepartureStatus.HIDDEN
             } else {
                 departureStatus != DepartureStatus.DEPARTED && departureStatus != DepartureStatus.HIDDEN
             }
 
-            val query = searchQuery.trim()
             val matchesSearch = query.isBlank() ||
                     bus.routeNumber.contains(query, ignoreCase = true) ||
                     bus.destination.contains(query, ignoreCase = true) ||
@@ -189,6 +202,34 @@ fun DepartureBoardContent(
                     bus.busCategory.equals(selectedCategory, ignoreCase = true)
 
             isVisible && matchesSearch && matchesOperator && matchesCategory
+        }
+
+        val (avail, dep) = filtered.partition { bus ->
+            calculateDepartureStatus(bus.leavingTime, currentTime) != DepartureStatus.DEPARTED
+        }
+
+        val sortedAvail = avail.sortedBy { bus ->
+            try { LocalTime.parse(bus.leavingTime) } catch (_: Exception) { LocalTime.MAX }
+        }
+        val sortedDep = dep.sortedBy { bus ->
+            try { LocalTime.parse(bus.leavingTime) } catch (_: Exception) { LocalTime.MIN }
+        }
+
+        Pair(sortedAvail, sortedDep)
+    }
+
+    val visibleBuses = remember(availableBuses, departedBuses) {
+        availableBuses + departedBuses
+    }
+
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val isScrolledPastShelf by remember {
+        derivedStateOf {
+            activeTripUiState.activeTrip != null && (
+                listState.firstVisibleItemIndex > 1 ||
+                (listState.firstVisibleItemIndex == 1 && listState.firstVisibleItemScrollOffset > 80)
+            )
         }
     }
 
@@ -224,7 +265,7 @@ fun DepartureBoardContent(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp)
     ) {
-        // Top Brand Header: Logo + Theme + Sync + Visual Avatar (Item 8)
+        // Top Brand Header: Logo + Brand + Refresh + Account Avatar (Touch-safe, no overlap)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -232,7 +273,7 @@ fun DepartureBoardContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f, fill = false)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -265,18 +306,20 @@ fun DepartureBoardContent(
                 )
             }
 
-            // Right Action Controls: Theme + Refresh + Visual Profile Button (Item 8)
+            // Right Action Controls: Refresh + Visual Profile Button (Explicit 38dp sizes with 10dp spacing to prevent overlap)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Refresh icon
-                IconButton(
-                    onClick = onRefresh,
+                // Refresh button
+                Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .clickable(onClick = onRefresh),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
@@ -287,10 +330,9 @@ fun DepartureBoardContent(
                 }
 
                 // Visual Profile Avatar (Item 2 & 7: Account icon, no username initial, clear border in light mode)
-                IconButton(
-                    onClick = onOpenAccount,
+                Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(
                             if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
@@ -301,13 +343,15 @@ fun DepartureBoardContent(
                             color = if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
                             shape = RoundedCornerShape(10.dp)
                         )
+                        .clickable(onClick = onOpenAccount),
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(contentAlignment = Alignment.TopEnd) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Account",
                             tint = if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
 
                         if (authUiState.isLoggedIn) {
@@ -323,8 +367,118 @@ fun DepartureBoardContent(
             }
         }
 
+        // Sticky Mini Active Trip Bar (Appears when scrolled past the main shelf)
+        AnimatedVisibility(
+            visible = isScrolledPastShelf && activeTripUiState.activeTrip != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            activeTripUiState.activeTrip?.let { trip ->
+                val departureStatus = calculateDepartureStatus(trip.leavingTime, currentTime)
+                val minutesUntilDeparture = calculateMinutesUntilDeparture(trip.leavingTime, currentTime)
+                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
+                val (badgeBg, badgeTextColor, badgeLabel) = when {
+                    trip.status.equals("MISSED", ignoreCase = true) ->
+                        Triple(Color(0xFFDC2626), Color.White, "MISSED")
+                    departureStatus == DepartureStatus.URGENT ->
+                        Triple(Color(0xFFDC2626), Color.White, "BOARDING")
+                    departureStatus == DepartureStatus.LEAVING_NOW ->
+                        Triple(Color(0xFFEA580C), Color.White, "LEAVING NOW")
+                    departureStatus == DepartureStatus.DEPARTED || departureStatus == DepartureStatus.HIDDEN ->
+                        Triple(Color(0xFF64748B), Color.White, "DEPARTED")
+                    minutesUntilDeparture in 0..60 ->
+                        Triple(if (isDark) Color(0xFF2563EB) else Color(0xFFDBEAFE), if (isDark) Color.White else Color(0xFF1E40AF), "IN ${minutesUntilDeparture}M")
+                    else ->
+                        Triple(if (isDark) Color(0xFF2563EB) else Color(0xFFDBEAFE), if (isDark) Color.White else Color(0xFF1E40AF), "SCHEDULED")
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .clickable {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(0)
+                            }
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF1E293B) else Color(0xFFEFF6FF)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = if (isDark) Color(0xFF3B82F6) else Color(0xFF93C5FD)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsBus,
+                                contentDescription = null,
+                                tint = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = trip.destination,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color.White else Color(0xFF1E3A8A),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = trip.leavingTime,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1D4ED8)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(badgeBg)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = badgeLabel,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = badgeTextColor
+                                )
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Scroll to top",
+                                tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Lazy Column list
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -562,7 +716,7 @@ fun DepartureBoardContent(
                 }
             } else {
                 items(
-                    items = visibleBuses,
+                    items = availableBuses,
                     key = { it.id }
                 ) { bus ->
                     val isMarked = activeTripUiState.activeTrip?.timetableEntryId == bus.id
@@ -579,6 +733,54 @@ fun DepartureBoardContent(
                             }
                         }
                     )
+                }
+
+                if (showDeparted && departedBuses.isNotEmpty()) {
+                    item(key = "departed_divider_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            HorizontalDivider(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                            Text(
+                                text = "DEPARTED SERVICES (${departedBuses.size})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                letterSpacing = 0.5.sp
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+
+                    items(
+                        items = departedBuses,
+                        key = { it.id }
+                    ) { bus ->
+                        val isMarked = activeTripUiState.activeTrip?.timetableEntryId == bus.id
+
+                        BusCard(
+                            bus = bus,
+                            currentTime = currentTime,
+                            isMarked = isMarked,
+                            onMarkClick = {
+                                if (isMarked) {
+                                    onRequestUnmark()
+                                } else {
+                                    onMarkBus(bus.id)
+                                }
+                            }
+                        )
+                    }
                 }
             }
 

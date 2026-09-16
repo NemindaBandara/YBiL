@@ -73,9 +73,9 @@ fun ActiveTripShelf(
             trip.status.equals("MISSED", ignoreCase = true)
 
     val privateStripeColor = if (isDark) Color(0xFF0284C7) else Color(0xFFEAD57B)
-    val privateBadgeBg = if (isDark) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFFEAD57B).copy(alpha = 0.25f)
-    val privateTextColor = if (isDark) Color(0xFF38BDF8) else Color(0xFFD97706)
-    val warningAccent = if (isDark) Color(0xFF38BDF8) else Color(0xFFF59E0B)
+    val privateBadgeBg = if (isDark) Color(0xFF0284C7).copy(alpha = 0.35f) else Color(0xFFEAD57B).copy(alpha = 0.25f)
+    val privateTextColor = if (isDark) Color.White else Color(0xFFD97706)
+    val warningAccent = Color(0xFFF59E0B)
 
     // Compute automatic next alternative buses on this route if bus has departed
     val resolvedAlternatives: List<BusUiModel> = remember(trip.routeNumber, trip.leavingTime, allBuses, missedFallback, isDeparted) {
@@ -265,7 +265,7 @@ fun ActiveTripShelf(
                         )
                         Text(
                             text = trip.leavingTime,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -362,11 +362,16 @@ private fun ShelfStatusChip(
     minutesUntilDeparture: Long,
     isDeparted: Boolean
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val (bgColor, textColor, label) = when {
         isDeparted -> Triple(Color(0xFFDC2626).copy(alpha = 0.15f), Color(0xFFEF4444), "DEPARTED")
         status == DepartureStatus.LEAVING_NOW -> Triple(Color(0xFFEA580C).copy(alpha = 0.2f), Color(0xFFF97316), "LEAVING NOW")
         status == DepartureStatus.URGENT -> Triple(Color(0xFFDC2626).copy(alpha = 0.15f), Color(0xFFEF4444), "IN $minutesUntilDeparture MIN")
-        else -> Triple(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), MaterialTheme.colorScheme.primary, "IN $minutesUntilDeparture MIN")
+        else -> Triple(
+            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.25f else 0.15f),
+            if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+            "IN $minutesUntilDeparture MIN"
+        )
     }
 
     Box(

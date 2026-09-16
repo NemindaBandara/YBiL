@@ -27,28 +27,27 @@ fun calculateDepartureStatus(
     leavingTime: String,
     currentTime: LocalTime
 ): DepartureStatus {
+    return try {
+        val minutesUntilDeparture =
+            calculateMinutesUntilDeparture(
+                leavingTime = leavingTime,
+                currentTime = currentTime
+            )
 
-    val minutesUntilDeparture =
-        calculateMinutesUntilDeparture(
-            leavingTime = leavingTime,
-            currentTime = currentTime
-        )
+        when {
+            minutesUntilDeparture > 15 ->
+                DepartureStatus.UPCOMING
 
-    return when {
+            minutesUntilDeparture in 1..15 ->
+                DepartureStatus.URGENT
 
-        minutesUntilDeparture > 15 ->
-            DepartureStatus.UPCOMING
+            minutesUntilDeparture == 0L ->
+                DepartureStatus.LEAVING_NOW
 
-        minutesUntilDeparture in 1..15 ->
-            DepartureStatus.URGENT
-
-        minutesUntilDeparture == 0L ->
-            DepartureStatus.LEAVING_NOW
-
-        minutesUntilDeparture in -15L..-1L ->
-            DepartureStatus.DEPARTED
-
-        else ->
-            DepartureStatus.HIDDEN
+            else ->
+                DepartureStatus.DEPARTED
+        }
+    } catch (_: Exception) {
+        DepartureStatus.HIDDEN
     }
 }
