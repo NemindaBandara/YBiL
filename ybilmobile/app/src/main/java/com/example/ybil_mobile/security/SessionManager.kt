@@ -31,6 +31,7 @@ class SessionManager(
         val ROLE = stringPreferencesKey("role")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val LEGAL_DISCLAIMER_ACCEPTED = booleanPreferencesKey("legal_disclaimer_accepted")
+        val PERMISSIONS_HANDLED = booleanPreferencesKey("permissions_handled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
@@ -88,6 +89,26 @@ class SessionManager(
     suspend fun setDisclaimerAccepted(accepted: Boolean) {
         context.sessionDataStore.edit { preferences ->
             preferences[LEGAL_DISCLAIMER_ACCEPTED] = accepted
+        }
+    }
+
+    val isPermissionsHandledFlow: Flow<Boolean> =
+        context.sessionDataStore
+            .data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                preferences[PERMISSIONS_HANDLED] ?: false
+            }
+
+    suspend fun setPermissionsHandled(handled: Boolean) {
+        context.sessionDataStore.edit { preferences ->
+            preferences[PERMISSIONS_HANDLED] = handled
         }
     }
 

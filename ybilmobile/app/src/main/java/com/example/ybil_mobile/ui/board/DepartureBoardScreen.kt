@@ -73,8 +73,6 @@ import java.time.LocalTime
 @Composable
 fun DepartureBoardScreen(
     onOpenAccount: () -> Unit,
-    onThemeToggle: () -> Unit = {},
-    currentThemeMode: String = "SYSTEM",
     onRequestUnmark: () -> Unit = {},
     onRequestSwitchTrip: (String) -> Unit = {},
     modifier: Modifier = Modifier
@@ -115,9 +113,7 @@ fun DepartureBoardScreen(
         uiState = uiState,
         authUiState = authUiState,
         activeTripUiState = activeTripUiState,
-        currentThemeMode = currentThemeMode,
         onOpenAccount = onOpenAccount,
-        onThemeToggle = onThemeToggle,
         onMarkBus = { busId ->
             if (authUiState.isLoggedIn) {
                 if (activeTripUiState.activeTrip != null) {
@@ -146,9 +142,7 @@ fun DepartureBoardContent(
     uiState: DepartureBoardUiState,
     authUiState: AuthUiState,
     activeTripUiState: ActiveTripUiState,
-    currentThemeMode: String,
     onOpenAccount: () -> Unit,
-    onThemeToggle: () -> Unit,
     onMarkBus: (String) -> Unit,
     onRequestUnmark: () -> Unit,
     onMissedClick: () -> Unit,
@@ -276,26 +270,6 @@ fun DepartureBoardContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Theme toggle icon
-                IconButton(
-                    onClick = onThemeToggle,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                ) {
-                    Icon(
-                        imageVector = when (currentThemeMode.uppercase()) {
-                            "LIGHT" -> Icons.Default.LightMode
-                            "DARK" -> Icons.Default.DarkMode
-                            else -> Icons.Default.BrightnessAuto
-                        },
-                        contentDescription = "Theme",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
                 // Refresh icon
                 IconButton(
                     onClick = onRefresh,
@@ -312,38 +286,29 @@ fun DepartureBoardContent(
                     )
                 }
 
-                // Visual Profile Avatar (Item 8: No raw username text at the top)
+                // Visual Profile Avatar (Item 2 & 7: Account icon, no username initial, clear border in light mode)
                 IconButton(
                     onClick = onOpenAccount,
                     modifier = Modifier
                         .size(36.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(
-                            if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                            else MaterialTheme.colorScheme.surface
+                            if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         )
                         .border(
                             width = if (authUiState.isLoggedIn) 1.5.dp else 1.dp,
-                            color = if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            color = if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
                             shape = RoundedCornerShape(10.dp)
                         )
                 ) {
                     Box(contentAlignment = Alignment.TopEnd) {
-                        if (authUiState.isLoggedIn && !authUiState.username.isNullOrBlank()) {
-                            Text(
-                                text = authUiState.username.first().uppercase(),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Account",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Account",
+                            tint = if (authUiState.isLoggedIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
 
                         if (authUiState.isLoggedIn) {
                             Box(

@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +64,7 @@ fun ActiveTripShelf(
     onDismissFallback: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val isSltb = trip.operatorType.equals("SLTB", ignoreCase = true)
     val departureStatus = calculateDepartureStatus(trip.leavingTime, currentTime)
     val minutesUntilDeparture = calculateMinutesUntilDeparture(trip.leavingTime, currentTime)
@@ -70,17 +72,26 @@ fun ActiveTripShelf(
             departureStatus == DepartureStatus.HIDDEN ||
             trip.status.equals("MISSED", ignoreCase = true)
 
+    val privateStripeColor = if (isDark) Color(0xFF0284C7) else Color(0xFFEAD57B)
+    val privateBadgeBg = if (isDark) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFFEAD57B).copy(alpha = 0.25f)
+    val privateTextColor = if (isDark) Color(0xFF38BDF8) else Color(0xFFD97706)
+    val warningAccent = if (isDark) Color(0xFF38BDF8) else Color(0xFFF59E0B)
+
     // Compute automatic next alternative buses on this route if bus has departed
-    val resolvedAlternatives = remember(trip.routeNumber, trip.leavingTime, allBuses, missedFallback, isDeparted) {
+    val resolvedAlternatives: List<BusUiModel> = remember(trip.routeNumber, trip.leavingTime, allBuses, missedFallback, isDeparted) {
         if (missedFallback != null && missedFallback.alternatives.isNotEmpty()) {
             missedFallback.alternatives
         } else if (isDeparted) {
             allBuses
-                .filter {
-                    it.routeNumber.equals(trip.routeNumber, ignoreCase = true) &&
-                            it.leavingTime > trip.leavingTime
+                .filter { candidate ->
+                    candidate.routeNumber.equals(trip.routeNumber, ignoreCase = true) &&
+                    candidate.id != trip.timetableEntryId &&
+                    run {
+                        val delta = calculateMinutesBetweenDepartures(trip.leavingTime, candidate.leavingTime)
+                        delta in 1..180 // Within 3 hours: supports midnight crossover while excluding distant tomorrow buses
+                    }
                 }
-                .sortedBy { it.leavingTime }
+                .sortedBy { calculateMinutesBetweenDepartures(trip.leavingTime, it.leavingTime) }
                 .take(3)
         } else {
             emptyList()
@@ -102,7 +113,7 @@ fun ActiveTripShelf(
                 modifier = Modifier
                     .width(5.dp)
                     .matchParentSize()
-                    .background(if (isSltb) Color(0xFFE94B50) else Color(0xFFEAD57B))
+                    .background(if (isSltb) Color(0xFFE94B50) else privateStripeColor)
             )
 
             Column(
@@ -143,7 +154,7 @@ fun ActiveTripShelf(
                         if (!isDeparted) {
                             TextButton(
                                 onClick = onMissedClick,
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF59E0B)),
+                                colors = ButtonDefaults.textButtonColors(contentColor = warningAccent),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
@@ -206,12 +217,12 @@ fun ActiveTripShelf(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSltb) Color(0xFFE94B50).copy(alpha = 0.15f) else Color(0xFFEAD57B).copy(alpha = 0.2f))
+                                    .background(if (isSltb) Color(0xFFE94B50).copy(alpha = 0.15f) else privateBadgeBg)
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = if (isSltb) "SLTB" else "PRIVATE",
-                                    color = if (isSltb) Color(0xFFE94B50) else Color(0xFFD97706),
+                                    color = if (isSltb) Color(0xFFE94B50) else privateTextColor,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -281,7 +292,7 @@ fun ActiveTripShelf(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                            .border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .border(1.dp, warningAccent.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -297,7 +308,7 @@ fun ActiveTripShelf(
                                 Icon(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = "Departed",
-                                    tint = Color(0xFFF59E0B),
+                                    tint = warningAccent,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
@@ -432,5 +443,16 @@ private fun AlternativeBusRow(
                 modifier = Modifier.size(10.dp)
             )
         }
+    }
+}
+
+private fun calculateMinutesBetweenDepartures(fromTimeStr: String, toTimeStr: String): Long {
+    return try {
+        val from = LocalTime.parse(fromTimeStr)
+        val to = LocalTime.parse(toTimeStr)
+        val diff = java.time.Duration.between(from, to).toMinutes()
+        if (diff < 0) diff + 24 * 60 else diff
+    } catch (e: Exception) {
+        Long.MAX_VALUE
     }
 }

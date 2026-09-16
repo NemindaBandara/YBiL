@@ -69,6 +69,7 @@ fun MainRootScreen(
 
     val sessionManager = application.sessionManager
     val isDisclaimerAccepted by sessionManager.isDisclaimerAcceptedFlow.collectAsStateWithLifecycle(initialValue = null)
+    val isPermissionsHandled by sessionManager.isPermissionsHandledFlow.collectAsStateWithLifecycle(initialValue = null)
 
     var currentTab by rememberSaveable { mutableStateOf(AppTab.DEPARTURES) }
     var showAuthSheet by rememberSaveable { mutableStateOf(false) }
@@ -114,8 +115,16 @@ fun MainRootScreen(
         }
     }
 
-    // 2-Step Permission Request Handler (Post Notifications + Exact Alarms)
-    NotificationAndAlarmPermissionHandler()
+    // 2-Step Permission Request Handler (Post Notifications + Exact Alarms) - only asked once
+    if (isPermissionsHandled == false) {
+        NotificationAndAlarmPermissionHandler(
+            onPermissionsHandled = {
+                coroutineScope.launch {
+                    sessionManager.setPermissionsHandled(true)
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -141,15 +150,6 @@ fun MainRootScreen(
                 AppTab.DEPARTURES -> {
                     DepartureBoardScreen(
                         onOpenAccount = { currentTab = AppTab.ACCOUNT },
-                        onThemeToggle = {
-                            val nextMode = when (themeMode.uppercase()) {
-                                "SYSTEM" -> "LIGHT"
-                                "LIGHT" -> "DARK"
-                                else -> "SYSTEM"
-                            }
-                            coroutineScope.launch { sessionManager.setThemeMode(nextMode) }
-                        },
-                        currentThemeMode = themeMode,
                         onRequestUnmark = { showUnmarkConfirmation = true },
                         onRequestSwitchTrip = { newBusId ->
                             if (activeTripUiState.activeTrip != null) {
