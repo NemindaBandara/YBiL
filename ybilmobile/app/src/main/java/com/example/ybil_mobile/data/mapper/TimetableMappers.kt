@@ -4,6 +4,7 @@ import com.example.ybil_mobile.data.local.entity.RouteEntity
 import com.example.ybil_mobile.data.local.entity.TimetableEntryEntity
 import com.example.ybil_mobile.data.remote.dto.RouteDto
 import com.example.ybil_mobile.data.remote.dto.TimetableEntryDto
+import com.example.ybil_mobile.ui.board.BusUiModel
 
 fun RouteDto.toEntity(): RouteEntity {
     return RouteEntity(
@@ -27,5 +28,18 @@ fun TimetableEntryDto.toEntity(): TimetableEntryEntity {
         scheduledParkingTime = scheduledParkingTime,
         scheduledLeavingTime = scheduledLeavingTime,
         updatedAt = updatedAt
+    )
+}
+
+fun TimetableEntryDto.toBusUiModel(): BusUiModel {
+    return BusUiModel(
+        id = id,
+        routeNumber = route.routeNumber,
+        destination = route.destination,
+        operatorType = operatorType,
+        busCategory = busCategory,
+        busNumber = busNumber,
+        parkingTime = scheduledParkingTime,
+        leavingTime = scheduledLeavingTime
     )
 }

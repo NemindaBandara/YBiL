@@ -1,9 +1,13 @@
 package com.example.ybil_mobile.ui.trip
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ybil_mobile.data.mapper.toBusUiModel
 import com.example.ybil_mobile.data.remote.dto.MarkedTripResponseDto
 import com.example.ybil_mobile.data.repository.TripRepository
+import com.example.ybil_mobile.notification.DepartureAlarmScheduler
+import com.example.ybil_mobile.notification.NotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,214 +17,192 @@ import retrofit2.HttpException
 import java.io.IOException
 
 class ActiveTripViewModel(
-    private val repository:
-    TripRepository
+    private val repository: TripRepository,
+    private val context: Context
 ) : ViewModel() {
 
-    private val _uiState =
-        MutableStateFlow(
-            ActiveTripUiState()
-        )
-
-    val uiState:
-            StateFlow<ActiveTripUiState> =
-        _uiState.asStateFlow()
-
+    private val _uiState = MutableStateFlow(ActiveTripUiState())
+    val uiState: StateFlow<ActiveTripUiState> = _uiState.asStateFlow()
 
     fun loadActiveTrip() {
-
         viewModelScope.launch {
-
             _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null
-                )
+                it.copy(isLoading = true, errorMessage = null)
             }
 
             try {
-
-                val activeTrip =
-                    repository.getActiveTrip()
-
+                val activeTrip = repository.getActiveTrip()
                 _uiState.update {
                     it.copy(
-                        activeTrip =
-                            activeTrip
-                                ?.toUiModel(),
+                        activeTrip = activeTrip?.toUiModel(),
                         isLoading = false,
                         errorMessage = null
                     )
                 }
-
             } catch (exception: Exception) {
-
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage =
-                            tripErrorMessage(
-                                exception
-                            )
+                        errorMessage = tripErrorMessage(exception)
                     )
                 }
             }
         }
     }
 
-
-    fun markTrip(
-        timetableEntryId: String
-    ) {
-
+    fun markTrip(timetableEntryId: String) {
         viewModelScope.launch {
-
             _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null
-                )
+                it.copy(isLoading = true, errorMessage = null)
             }
 
             try {
-
-                val trip =
-                    repository.markTrip(
-                        timetableEntryId
-                    )
+                val trip = repository.markTrip(timetableEntryId)
+                val uiModel = trip.toUiModel()
 
                 _uiState.update {
                     it.copy(
-                        activeTrip =
-                            trip.toUiModel(),
+                        activeTrip = uiModel,
+                        missedFallback = null,
                         isLoading = false,
                         errorMessage = null
                     )
                 }
 
-            } catch (exception: Exception) {
+                // Schedule exact alarm stages and show immediate status alert
+                DepartureAlarmScheduler.scheduleTripAlarms(
+                    context = context,
+                    tripId = uiModel.tripId,
+                    busNumber = uiModel.busNumber ?: "Bus ${uiModel.routeNumber}",
+                    routeNumber = uiModel.routeNumber,
+                    destination = uiModel.destination,
+                    parkingTimeStr = uiModel.parkingTime,
+                    leavingTimeStr = uiModel.leavingTime
+                )
 
+            } catch (exception: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage =
-                            tripErrorMessage(
-                                exception
-                            )
+                        errorMessage = tripErrorMessage(exception)
                     )
                 }
             }
         }
     }
-
 
     fun cancelActiveTrip() {
-
-        val trip =
-            _uiState.value.activeTrip
-                ?: return
+        val trip = _uiState.value.activeTrip ?: return
 
         viewModelScope.launch {
-
             _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null
-                )
+                it.copy(isLoading = true, errorMessage = null)
             }
 
             try {
-
-                repository.cancelTrip(
-                    tripId =
-                        trip.tripId
-                )
+                repository.cancelTrip(tripId = trip.tripId)
+                DepartureAlarmScheduler.cancelTripAlarms(context)
 
                 _uiState.update {
                     it.copy(
                         activeTrip = null,
+                        missedFallback = null,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
+            } catch (exception: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = tripErrorMessage(exception)
+                    )
+                }
+            }
+        }
+    }
+
+    fun handleMissedTrip() {
+        val trip = _uiState.value.activeTrip ?: return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, errorMessage = null)
+            }
+
+            try {
+                val fallbackResponse = repository.handleMissedTrip(trip.tripId)
+                val alternatives = fallbackResponse.alternatives.map { it.toBusUiModel() }
+
+                DepartureAlarmScheduler.cancelTripAlarms(context)
+
+                _uiState.update {
+                    it.copy(
+                        activeTrip = it.activeTrip?.copy(status = "MISSED"),
+                        missedFallback = MissedBusFallbackUiModel(
+                            missedTripId = fallbackResponse.missedTripId,
+                            message = fallbackResponse.message,
+                            alternatives = alternatives
+                        ),
                         isLoading = false,
                         errorMessage = null
                     )
                 }
 
-            } catch (exception: Exception) {
+                NotificationHelper(context).showStageNotification(
+                    stage = NotificationHelper.STAGE_MISSED,
+                    busNumber = trip.busNumber ?: "Bus ${trip.routeNumber}",
+                    routeNumber = trip.routeNumber,
+                    destination = trip.destination
+                )
 
+            } catch (exception: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage =
-                            tripErrorMessage(
-                                exception
-                            )
+                        errorMessage = tripErrorMessage(exception)
                     )
                 }
             }
         }
     }
 
-
-    fun clearLocalState() {
-
-        _uiState.value =
-            ActiveTripUiState()
+    fun dismissMissedFallback() {
+        _uiState.update {
+            it.copy(missedFallback = null)
+        }
     }
 
+    fun clearLocalState() {
+        DepartureAlarmScheduler.cancelTripAlarms(context)
+        _uiState.value = ActiveTripUiState()
+    }
 
-    private fun tripErrorMessage(
-        exception: Exception
-    ): String {
-
+    private fun tripErrorMessage(exception: Exception): String {
         return when (exception) {
-
             is HttpException -> {
-
                 when (exception.code()) {
-
-                    401 ->
-                        "Your session has expired. Please login again."
-
-                    404 ->
-                        "This trip could not be found."
-
-                    else ->
-                        "Trip request failed (${exception.code()})."
+                    401 -> "Your session has expired. Please login again."
+                    404 -> "This trip could not be found."
+                    else -> "Trip request failed (${exception.code()})."
                 }
             }
-
-            is IOException ->
-                "Unable to connect to the server."
-
-            else ->
-                exception.message
-                    ?: "Unable to update trip."
+            is IOException -> "Unable to connect to the server."
+            else -> exception.message ?: "Unable to update trip."
         }
     }
 }
 
-
-private fun MarkedTripResponseDto.toUiModel():
-        ActiveTripUiModel {
-
+private fun MarkedTripResponseDto.toUiModel(): ActiveTripUiModel {
     return ActiveTripUiModel(
         tripId = id,
-        timetableEntryId =
-            timetableEntry.id,
-        routeNumber =
-            timetableEntry.route.routeNumber,
-        destination =
-            timetableEntry.route.destination,
-        operatorType =
-            timetableEntry.operatorType,
-        busCategory =
-            timetableEntry.busCategory,
-        busNumber =
-            timetableEntry.busNumber,
-        parkingTime =
-            timetableEntry.scheduledParkingTime,
-        leavingTime =
-            timetableEntry.scheduledLeavingTime,
-        status =
-            status
+        timetableEntryId = timetableEntry.id,
+        routeNumber = timetableEntry.route.routeNumber,
+        destination = timetableEntry.route.destination,
+        operatorType = timetableEntry.operatorType,
+        busCategory = timetableEntry.busCategory,
+        busNumber = timetableEntry.busNumber,
+        parkingTime = timetableEntry.scheduledParkingTime,
+        leavingTime = timetableEntry.scheduledLeavingTime,
+        status = status
     )
 }

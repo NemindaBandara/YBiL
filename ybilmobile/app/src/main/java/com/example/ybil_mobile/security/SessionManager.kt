@@ -3,163 +3,129 @@ package com.example.ybil_mobile.security
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.ybil_mobile.data.remote.dto.AuthResponseDto
+import com.example.ybil_mobile.data.remote.dto.AuthUserDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
-import com.example.ybil_mobile.data.remote.dto.AuthUserDto
 
-
-private val Context.sessionDataStore:
-        DataStore<Preferences> by preferencesDataStore(
+private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "ybil_session"
 )
-
 
 class SessionManager(
     private val context: Context
 ) {
-
     private companion object {
-
-        val ACCESS_TOKEN =
-            stringPreferencesKey(
-                "access_token"
-            )
-
-        val TOKEN_TYPE =
-            stringPreferencesKey(
-                "token_type"
-            )
-
-        val USER_ID =
-            stringPreferencesKey(
-                "user_id"
-            )
-
-        val USERNAME =
-            stringPreferencesKey(
-                "username"
-            )
-
-        val ROLE =
-            stringPreferencesKey(
-                "role"
-            )
-
-        val REFRESH_TOKEN =
-            stringPreferencesKey(
-                "refresh_token"
-            )
+        val ACCESS_TOKEN = stringPreferencesKey("access_token")
+        val TOKEN_TYPE = stringPreferencesKey("token_type")
+        val USER_ID = stringPreferencesKey("user_id")
+        val USERNAME = stringPreferencesKey("username")
+        val ROLE = stringPreferencesKey("role")
+        val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        val LEGAL_DISCLAIMER_ACCEPTED = booleanPreferencesKey("legal_disclaimer_accepted")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
-
 
     val sessionFlow: Flow<UserSession> =
         context.sessionDataStore
             .data
             .catch { exception ->
-
                 if (exception is IOException) {
-                    emit(
-                        emptyPreferences()
-                    )
+                    emit(emptyPreferences())
                 } else {
                     throw exception
                 }
             }
             .map { preferences ->
-
                 UserSession(
-                    accessToken =
-                        preferences[
-                            ACCESS_TOKEN
-                        ],
-
-                    refreshToken =
-                        preferences[
-                            REFRESH_TOKEN
-                        ],
-
-                    tokenType =
-                        preferences[
-                            TOKEN_TYPE
-                        ] ?: "Bearer",
-
-                    userId =
-                        preferences[
-                            USER_ID
-                        ],
-
-                    username =
-                        preferences[
-                            USERNAME
-                        ],
-
-                    role =
-                        preferences[
-                            ROLE
-                        ]
+                    accessToken = preferences[ACCESS_TOKEN],
+                    refreshToken = preferences[REFRESH_TOKEN],
+                    tokenType = preferences[TOKEN_TYPE] ?: "Bearer",
+                    userId = preferences[USER_ID],
+                    username = preferences[USERNAME],
+                    role = preferences[ROLE]
                 )
             }
 
-
-    suspend fun saveTokens(
-        response: AuthResponseDto
-    ) {
-
-        context.sessionDataStore.edit {
-                preferences ->
-
-            preferences[ACCESS_TOKEN] =
-                response.accessToken
-
-            preferences[REFRESH_TOKEN] =
-                response.refreshToken
-
-            preferences[TOKEN_TYPE] =
-                response.tokenType
+    suspend fun saveTokens(response: AuthResponseDto) {
+        context.sessionDataStore.edit { preferences ->
+            preferences[ACCESS_TOKEN] = response.accessToken
+            preferences[REFRESH_TOKEN] = response.refreshToken
+            preferences[TOKEN_TYPE] = response.tokenType
         }
     }
 
-    suspend fun saveUser(
-        user: AuthUserDto
-    ) {
-
-        context.sessionDataStore.edit {
-                preferences ->
-
-            preferences[USER_ID] =
-                user.id
-
-            preferences[USERNAME] =
-                user.username
-
-            preferences[ROLE] =
-                user.role
+    suspend fun saveUser(user: AuthUserDto) {
+        context.sessionDataStore.edit { preferences ->
+            preferences[USER_ID] = user.id
+            preferences[USERNAME] = user.username
+            preferences[ROLE] = user.role
         }
     }
 
+    val isDisclaimerAcceptedFlow: Flow<Boolean> =
+        context.sessionDataStore
+            .data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                preferences[LEGAL_DISCLAIMER_ACCEPTED] ?: false
+            }
+
+    suspend fun setDisclaimerAccepted(accepted: Boolean) {
+        context.sessionDataStore.edit { preferences ->
+            preferences[LEGAL_DISCLAIMER_ACCEPTED] = accepted
+        }
+    }
+
+    val themeModeFlow: Flow<String> =
+        context.sessionDataStore
+            .data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                preferences[THEME_MODE] ?: "SYSTEM"
+            }
+
+    suspend fun setThemeMode(mode: String) {
+        context.sessionDataStore.edit { preferences ->
+            preferences[THEME_MODE] = mode
+        }
+    }
 
     suspend fun getAccessToken(): String? {
-
-        return sessionFlow
-            .first()
-            .accessToken
+        return sessionFlow.first().accessToken
     }
 
-
     suspend fun clearSession() {
-
-        context.sessionDataStore.edit {
-                preferences ->
-
+        context.sessionDataStore.edit { preferences ->
+            val disclaimerAccepted = preferences[LEGAL_DISCLAIMER_ACCEPTED] ?: false
+            val themeMode = preferences[THEME_MODE]
             preferences.clear()
+            if (disclaimerAccepted) {
+                preferences[LEGAL_DISCLAIMER_ACCEPTED] = true
+            }
+            if (themeMode != null) {
+                preferences[THEME_MODE] = themeMode
+            }
         }
     }
 }

@@ -6,76 +6,43 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-
 object RetrofitClient {
 
-    private const val BASE_URL =
-        "http://127.0.0.1:8080/"
-
+    private const val BASE_URL = "http://127.0.0.1:8080/"
+    // For Android Emulator, 10.0.2.2 routes directly to host PC localhost (127.0.0.1).
+    // For physical USB devices, run `adb reverse tcp:8080 tcp:8080` or use your PC's LAN IP.
+    //private const val BASE_URL = "http://10.0.2.2:8080/"
 
     private val loggingInterceptor =
-        HttpLoggingInterceptor().apply {
-
-            level =
-                HttpLoggingInterceptor.Level.BASIC
-        }
-
+            HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BASIC
+                level = HttpLoggingInterceptor.Level.BODY
+            }
 
     private val publicOkHttpClient =
-        OkHttpClient
-            .Builder()
-            .addInterceptor(
-                loggingInterceptor
-            )
-            .build()
+            OkHttpClient.Builder().addInterceptor(loggingInterceptor).build()
 
+    private fun createRetrofit(client: OkHttpClient): Retrofit {
 
-    private fun createRetrofit(
-        client: OkHttpClient
-    ): Retrofit {
-
-        return Retrofit
-            .Builder()
-            .baseUrl(BASE_URL)
-            .client(client)
-            .addConverterFactory(
-                GsonConverterFactory.create()
-            )
-            .build()
+        return Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
     }
-
 
     val api: YBiLApiService by lazy {
-
-        createRetrofit(
-            publicOkHttpClient
-        ).create(
-            YBiLApiService::class.java
-        )
+        createRetrofit(publicOkHttpClient).create(YBiLApiService::class.java)
     }
 
-
-    fun createAuthenticatedApi(
-        sessionManager: SessionManager
-    ): YBiLApiService {
+    fun createAuthenticatedApi(sessionManager: SessionManager): YBiLApiService {
 
         val authenticatedClient =
-            OkHttpClient
-                .Builder()
-                .addInterceptor(
-                    AuthInterceptor(
-                        sessionManager
-                    )
-                )
-                .addInterceptor(
-                    loggingInterceptor
-                )
-                .build()
+                OkHttpClient.Builder()
+                        .addInterceptor(AuthInterceptor(sessionManager))
+                        .addInterceptor(loggingInterceptor)
+                        .build()
 
-        return createRetrofit(
-            authenticatedClient
-        ).create(
-            YBiLApiService::class.java
-        )
+        return createRetrofit(authenticatedClient).create(YBiLApiService::class.java)
     }
 }

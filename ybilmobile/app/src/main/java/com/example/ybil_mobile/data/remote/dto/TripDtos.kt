@@ -10,3 +10,9 @@ data class MarkedTripResponseDto(
     val status: String,
     val createdAt: String
 )
+
+data class MissedBusFallbackResponseDto(
+    val missedTripId: String,
+    val message: String,
+    val alternatives: List<TimetableEntryDto>
+)

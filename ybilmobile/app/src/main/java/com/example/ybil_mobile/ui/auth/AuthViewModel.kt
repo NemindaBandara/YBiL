@@ -3,6 +3,7 @@ package com.example.ybil_mobile.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ybil_mobile.data.repository.AuthRepository
+import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,19 +11,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
-import java.io.IOException
 
-class AuthViewModel(
-    private val repository: AuthRepository
-) : ViewModel() {
+class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
-    private val _uiState =
-        MutableStateFlow(
-            AuthUiState()
-        )
+    private val _uiState = MutableStateFlow(AuthUiState())
 
-    val uiState: StateFlow<AuthUiState> =
-        _uiState.asStateFlow()
+    val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
         observeSession()
@@ -32,31 +26,23 @@ class AuthViewModel(
     private fun observeSession() {
 
         viewModelScope.launch {
-
             repository.session.collect { session ->
-
                 _uiState.update { currentState ->
-
                     currentState.copy(
-                        isLoggedIn =
-                            session.isLoggedIn,
-                        username =
-                            session.username,
-                        role =
-                            session.role
+                            isLoggedIn = session.isLoggedIn,
+                            userId = session.userId,
+                            username = session.username,
+                            role = session.role
                     )
                 }
             }
         }
     }
 
-
     private fun validateStoredSession() {
 
         viewModelScope.launch {
-
-            val session =
-                repository.session.first()
+            val session = repository.session.first()
 
             if (!session.isLoggedIn) {
                 return@launch
@@ -71,7 +57,6 @@ class AuthViewModel(
                  * the stored Bearer token.
                  */
                 repository.getCurrentUser()
-
             } catch (exception: HttpException) {
 
                 /*
@@ -82,7 +67,6 @@ class AuthViewModel(
                 if (exception.code() == 401) {
                     repository.logout()
                 }
-
             } catch (_: IOException) {
 
                 /*
@@ -95,190 +79,103 @@ class AuthViewModel(
         }
     }
 
+    fun login(username: String, password: String) {
 
-    fun login(
-        username: String,
-        password: String
-    ) {
+        if (username.isBlank() || password.isBlank()) {
 
-        if (
-            username.isBlank() ||
-            password.isBlank()
-        ) {
-
-            _uiState.update {
-                it.copy(
-                    errorMessage =
-                        "Username and password are required."
-                )
-            }
+            _uiState.update { it.copy(errorMessage = "Username and password are required.") }
 
             return
         }
 
         viewModelScope.launch {
-
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null
-                )
-            }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             try {
 
-                repository.login(
-                    username = username.trim(),
-                    password = password
-                )
+                repository.login(username = username.trim(), password = password)
 
                 /*
                  * Immediately prove that the saved JWT
                  * can access a protected endpoint.
                  */
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = null
-                    )
-                }
-
+                _uiState.update { it.copy(isLoading = false, errorMessage = null) }
             } catch (exception: Exception) {
 
                 _uiState.update {
                     it.copy(
-                        isLoading = false,
-                        errorMessage =
-                            authErrorMessage(
-                                exception = exception,
-                                isRegister = false
-                            )
+                            isLoading = false,
+                            errorMessage =
+                                    authErrorMessage(exception = exception, isRegister = false)
                     )
                 }
             }
         }
     }
 
+    fun register(username: String, password: String) {
 
-    fun register(
-        username: String,
-        password: String
-    ) {
+        if (username.isBlank() || password.isBlank()) {
 
-        if (
-            username.isBlank() ||
-            password.isBlank()
-        ) {
-
-            _uiState.update {
-                it.copy(
-                    errorMessage =
-                        "Username and password are required."
-                )
-            }
+            _uiState.update { it.copy(errorMessage = "Username and password are required.") }
 
             return
         }
 
         viewModelScope.launch {
-
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    errorMessage = null
-                )
-            }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             try {
 
-                repository.register(
-                    username = username.trim(),
-                    password = password
-                )
+                repository.register(username = username.trim(), password = password)
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = null
-                    )
-                }
-
+                _uiState.update { it.copy(isLoading = false, errorMessage = null) }
             } catch (exception: Exception) {
 
                 _uiState.update {
                     it.copy(
-                        isLoading = false,
-                        errorMessage =
-                            authErrorMessage(
-                                exception = exception,
-                                isRegister = true
-                            )
+                            isLoading = false,
+                            errorMessage =
+                                    authErrorMessage(exception = exception, isRegister = true)
                     )
                 }
             }
         }
     }
 
-
     fun logout() {
 
         viewModelScope.launch {
-
             repository.logout()
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    errorMessage = null
-                )
-            }
+            _uiState.update { it.copy(isLoading = false, errorMessage = null) }
         }
     }
-
 
     fun clearError() {
 
-        _uiState.update {
-            it.copy(
-                errorMessage = null
-            )
-        }
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
-
-    private fun authErrorMessage(
-        exception: Exception,
-        isRegister: Boolean
-    ): String {
+    private fun authErrorMessage(exception: Exception, isRegister: Boolean): String {
 
         return when (exception) {
-
             is HttpException -> {
 
                 when (exception.code()) {
-
-                    401 ->
-                        "Invalid username or password."
-
+                    401 -> "Invalid username or password."
                     409 ->
-                        if (isRegister) {
-                            "That username is already taken."
-                        } else {
-                            "Unable to log in."
-                        }
-
-                    else ->
-                        "Server error (${exception.code()})."
+                            if (isRegister) {
+                                "That username is already taken."
+                            } else {
+                                "Unable to log in."
+                            }
+                    else -> "Server error (${exception.code()})."
                 }
             }
-
-            is IOException ->
-                "Unable to connect to the server."
-
-            else ->
-                exception.message
-                    ?: "Something went wrong."
+            is IOException -> "Unable to connect to the server."
+            else -> exception.message ?: "Something went wrong."
         }
     }
 }
